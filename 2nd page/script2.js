@@ -32,7 +32,7 @@ function showTeacherDashboard() {
 
 function showStudentDashboard() {
   document.getElementById("student-panel").classList.remove("hidden");
-  document.getElementById("teacher-panel").classList.add("hidden");
+  document.getElementById("teacherpanel").classList.add("hidden");
   localStorage.setItem("role", "student");
 }
 
