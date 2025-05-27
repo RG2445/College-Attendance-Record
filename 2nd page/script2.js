@@ -40,7 +40,7 @@ let totalClasses = 0;
 let presentCount = 0;
 
 function updateAttendanceStats() {
-  document.getElementById("total-classes").textContent = totalClasses;
+  document.getElementById("total-classes").textContent = totalClasses;// total class
   document.getElementById("present-count").textContent = presentCount;
   const percentage = totalClasses > 0 ? ((presentCount / totalClasses) * 100).toFixed(2) : 0;
   document.getElementById("attendance-percentage").textContent = `${percentage}%`;
