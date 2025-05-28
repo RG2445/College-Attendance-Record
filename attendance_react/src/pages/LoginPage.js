@@ -42,16 +42,16 @@ export default function LoginPage() {
         <div className="row g-0">
           {/* Left Side */}
           <div className="col-md-6 bg-primary text-white d-flex flex-column justify-content-center align-items-center p-4">
-           <img
-  src="https://th.bing.com/th/id/OIP.y8tG55TjpAKvHsvoazKfWwHaGh?cb=iwp2&rs=1&pid=ImgDetMain"
-  alt="IPU Logo"
-  className="img-fluid mb-3"
-  style={{
-    width: "150px",
-    objectFit: "cover",
-    borderRadius: "0%",
-  }}
-/>
+            <img
+              src="https://th.bing.com/th/id/OIP.y8tG55TjpAKvHsvoazKfWwHaGh?cb=iwp2&rs=1&pid=ImgDetMain"
+              alt="IPU Logo"
+              className="img-fluid mb-3"
+              style={{
+                width: "150px",
+                objectFit: "cover",
+                borderRadius: "0%",
+              }}
+            />
 
             <h3 className="text-center fw-bold">Welcome to IPU Portal</h3>
             <p className="text-center">Student / Teacher Dashboard Access</p>
@@ -70,70 +70,73 @@ export default function LoginPage() {
             {/* Role Toggle */}
             {/* Role Toggle Smooth Switch */}
 
-  <div style={{ width: '220px', margin: '20px auto' }}>
-  <div
-    style={{
-      display: 'flex',
-      borderRadius: '25px',
-      border: '2px solid #0d6efd',
-      position: 'relative',
-      cursor: 'pointer',
-      userSelect: 'none',
-      backgroundColor: '#f0f4ff',
-    }}
-  >
-    <div
-      style={{
-        position: 'absolute',
-        top: 2,
-        bottom: 2,
-        left: role === 'student' ? 2 : 'calc(50% + 2px)',
-        width: 'calc(50% - 4px)',
-        backgroundColor: '#0d6efd',
-        borderRadius: '25px',
-        transition: 'left 0.4s ease',
-        zIndex: 1,
-      }}
-    ></div>
+            <div style={{ width: "220px", margin: "20px auto" }}>
+              <div
+                style={{
+                  display: "flex",
+                  borderRadius: "25px",
+                  border: "2px solid #0d6efd",
+                  position: "relative",
+                  cursor: "pointer",
+                  userSelect: "none",
+                  backgroundColor: "#f0f4ff",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 2,
+                    bottom: 2,
+                    left: role === "student" ? 2 : "calc(50% + 2px)",
+                    width: "calc(50% - 4px)",
+                    backgroundColor: "#0d6efd",
+                    borderRadius: "25px",
+                    transition: "left 0.4s ease",
+                    zIndex: 1,
+                  }}
+                ></div>
 
-    <div
-      onClick={() => setRole(prev => (prev === 'student' ? 'teacher' : 'student'))}
-      style={{
-        flex: 1,
-        padding: '10px 0',
-        textAlign: 'center',
-        color: role === 'student' ? 'white' : '#0d6efd',
-        fontWeight: role === 'student' ? '600' : '500',
-        zIndex: 2,
-        userSelect: 'none',
-      }}
-    >
-      Student
-    </div>
+                <div
+                  onClick={() =>
+                    setRole((prev) =>
+                      prev === "student" ? "teacher" : "student"
+                    )
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "10px 0",
+                    textAlign: "center",
+                    color: role === "student" ? "white" : "#0d6efd",
+                    fontWeight: role === "student" ? "600" : "500",
+                    zIndex: 2,
+                    userSelect: "none",
+                  }}
+                >
+                  Student
+                </div>
 
-    <div
-      onClick={() => setRole(prev => (prev === 'teacher' ? 'student' : 'teacher'))}
-      style={{
-        flex: 1,
-        padding: '10px 0',
-        textAlign: 'center',
-        color: role === 'teacher' ? 'white' : '#0d6efd',
-        fontWeight: role === 'teacher' ? '600' : '500',
-        zIndex: 2,
-        userSelect: 'none',
-      }}
-    >
-      Teacher
-    </div>
-  </div>
+                <div
+                  onClick={() =>
+                    setRole((prev) =>
+                      prev === "teacher" ? "student" : "teacher"
+                    )
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "10px 0",
+                    textAlign: "center",
+                    color: role === "teacher" ? "white" : "#0d6efd",
+                    fontWeight: role === "teacher" ? "600" : "500",
+                    zIndex: 2,
+                    userSelect: "none",
+                  }}
+                >
+                  Teacher
+                </div>
+              </div>
 
-  <p style={{ textAlign: 'center', marginTop: '15px' }}>
-  </p>
-</div>
-
-  
-
-
+              <p style={{ textAlign: "center", marginTop: "15px" }}></p>
+            </div>
 
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
