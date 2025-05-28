@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate,Link } from "react-router-dom";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -174,9 +174,9 @@ export default function LoginPage() {
                     Remember me
                   </label>
                 </div>
-                <a href="#" className="text-primary text-decoration-none">
+                <Link href="/" className="text-primary text-decoration-none">
                   Forgot password?
-                </a>
+                </Link>
               </div>
 
               <div className="d-grid">
