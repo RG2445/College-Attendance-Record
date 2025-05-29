@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const {jwtAuthMiddleware}=require('./../jwt.js')
 const Attendance = require('../Models/Attendance');
-const Student = require('../Models/Student');
 
 // Get student's monthly attendance report
 router.get('/attendance/:studentId/:month', jwtAuthMiddleware, async (req, res) => {

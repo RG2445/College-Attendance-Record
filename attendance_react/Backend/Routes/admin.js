@@ -30,4 +30,25 @@ router.post('/add-user', async (req, res) => {
   }
 });
 
+router.post('/assign-subject', async (req, res) => {
+  const { subjectId, teacherId } = req.body;
+
+  try {
+    // Update the subject's teacher field
+    const subject = await Subject.findByIdAndUpdate(subjectId, { teacher: teacherId }, { new: true });
+
+    // Also update the teacher's subjects array (if needed)
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher.subjects.includes(subjectId)) {
+      teacher.subjects.push(subjectId);
+      await teacher.save();
+    }
+
+    res.json({ message: 'Subject assigned to teacher successfully', subject });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to assign subject' });
+  }
+});
+
 module.exports = router;
