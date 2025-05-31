@@ -1,3 +1,5 @@
+//This model handles login credentials and role-based access
+
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 

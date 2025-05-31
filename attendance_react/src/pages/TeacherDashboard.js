@@ -1,169 +1,122 @@
 import React, { useEffect, useState } from "react";
 
-const API_BASE = "http://localhost:5000/api";
-
 const TeacherDashboard = () => {
   const [subjects, setSubjects] = useState([]);
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [attendanceList, setAttendanceList] = useState([]);
-  const [loadingStudents, setLoadingStudents] = useState(false);
-  const [message, setMessage] = useState("");
-
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [attendanceData, setAttendanceData] = useState([]);
   const token = localStorage.getItem("token");
 
+  // Fetch assigned subjects to teacher
   useEffect(() => {
-    fetch(`${API_BASE}/teachers/subjects`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setSubjects(data);
-        if (data.length > 0) setSelectedSubject(data[0]._id);
-      })
-      .catch((err) => console.error("Failed to fetch subjects:", err));
+    const fetchSubjects = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/teachers/subjects", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          setSubjects(data);
+        } else {
+          console.error("Failed to fetch subjects", data.error);
+        }
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
+      }
+    };
+
+    fetchSubjects();
   }, [token]);
 
-  useEffect(() => {
-    if (!selectedSubject) return;
+  // Fetch attendance when a subject is selected
+  const handleSubjectChange = async (e) => {
+    const subjectId = e.target.value;
+    setSelectedSubjectId(subjectId);
 
-    setLoadingStudents(true);
-    setMessage("");
+    try {
+      const response = await fetch(`http://localhost:5000/api/teachers/subject/${subjectId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    fetch(`${API_BASE}/teachers/subject/${selectedSubject}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((records) => {
-        if (records.length === 0) {
-          setAttendanceList([]);
-          setLoadingStudents(false);
-          setMessage("No attendance records found. You can add attendance.");
-          return;
+      const data = await response.json();
+      if (!response.ok) {
+        console.error("Error fetching attendance:", data.error);
+        return;
+      }
+
+      // Calculate per-student attendance stats
+      const studentStats = {};
+      data.forEach((record) => {
+        const studentId = record.student._id;
+        if (!studentStats[studentId]) {
+          studentStats[studentId] = {
+            name: record.student.name,
+            enrollNumber: record.student.enrollmentNumber || "N/A",
+            present: 0,
+            total: 0,
+          };
         }
-
-        const attendanceData = records.map((record) => ({
-          studentId: record.student._id,
-          name: record.student.name,
-          rollNumber: record.student.rollNumber || "N/A",
-          status: record.status,
-        }));
-
-        setAttendanceList(attendanceData);
-        setLoadingStudents(false);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch attendance records:", err);
-        setLoadingStudents(false);
-        setMessage("Failed to load attendance data.");
+        studentStats[studentId].total += 1;
+        if (record.status === "Present") {
+          studentStats[studentId].present += 1;
+        }
       });
-  }, [selectedSubject, token]);
 
-  const handleStatusChange = (studentId, newStatus) => {
-    setAttendanceList((prevList) =>
-      prevList.map((item) =>
-        item.studentId === studentId ? { ...item, status: newStatus } : item
-      )
-    );
-  };
-
-  const handleSubmit = () => {
-    if (!selectedSubject) return;
-
-    const date = new Date().toISOString().slice(0, 10);
-
-    const attendancePayload = attendanceList.map((item) => ({
-      studentId: item.studentId,
-      status: item.status,
-    }));
-
-    fetch(`${API_BASE}/teachers/mark-attendance`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        subjectId: selectedSubject,
-        date,
-        attendanceList: attendancePayload,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to mark attendance");
-        return res.json();
-      })
-      .then((data) => {
-        setMessage(data.message || "Attendance marked successfully");
-      })
-      .catch((err) => {
-        console.error(err);
-        setMessage("Failed to mark attendance");
-      });
+      // Convert to array
+      const statsArray = Object.values(studentStats);
+      setAttendanceData(statsArray);
+    } catch (error) {
+      console.error("Error fetching attendance data:", error);
+    }
   };
 
   return (
-    <div className="container mt-4">
-      <h2 className="mb-4">Teacher Dashboard</h2>
+    <div className="container mt-5">
+      <h2 className="mb-4 text-center">Teacher Dashboard</h2>
 
-      <div className="mb-3">
+      <div className="mb-4">
         <label htmlFor="subjectSelect" className="form-label">
-          Select Subject
+          Select Subject:
         </label>
         <select
-          id="subjectSelect"
           className="form-select"
-          value={selectedSubject}
-          onChange={(e) => setSelectedSubject(e.target.value)}
+          id="subjectSelect"
+          value={selectedSubjectId}
+          onChange={handleSubjectChange}
         >
-          {subjects.map((subj) => (
-            <option key={subj._id} value={subj._id}>
-              {subj.name} ({subj.code})
+          <option value="">-- Select a Subject --</option>
+          {subjects.map((subject) => (
+            <option key={subject._id} value={subject._id}>
+              {subject.name} ({subject.code})
             </option>
           ))}
         </select>
       </div>
 
-      {loadingStudents ? (
-        <div className="text-center my-5">
-          <div
-            className="spinner-border text-primary"
-            role="status"
-            aria-hidden="true"
-          ></div>
-          <div>Loading students and attendance...</div>
-        </div>
-      ) : attendanceList.length === 0 ? (
-        <div className="alert alert-info" role="alert">
-          {message || "No students found for this subject."}
-        </div>
-      ) : (
+      {attendanceData.length > 0 && (
         <div className="table-responsive">
-          <table className="table table-striped table-bordered align-middle">
+          <table className="table table-bordered table-hover">
             <thead className="table-dark">
               <tr>
                 <th>Name</th>
-                <th>Enrollment No.</th>
-                <th>Attendance Status</th>
+                <th>Enrollment Number</th>
+                <th>Total Classes</th>
+                <th>Present</th>
+                <th>Attendance %</th>
               </tr>
             </thead>
             <tbody>
-              {attendanceList.map((student) => (
-                <tr key={student.studentId}>
+              {attendanceData.map((student, index) => (
+                <tr key={index}>
                   <td>{student.name}</td>
-                  <td>{student.rollNumber}</td>
-                  <td>
-                    <select
-                      className="form-select"
-                      value={student.status}
-                      onChange={(e) =>
-                        handleStatusChange(student.studentId, e.target.value)
-                      }
-                    >
-                      <option value="Present">Present</option>
-                      <option value="Absent">Absent</option>
-                    </select>
-                  </td>
+                  <td>{student.enrollNumber}</td>
+                  <td>{student.total}</td>
+                  <td>{student.present}</td>
+                  <td>{((student.present / student.total) * 100).toFixed(2)}%</td>
                 </tr>
               ))}
             </tbody>
@@ -171,18 +124,8 @@ const TeacherDashboard = () => {
         </div>
       )}
 
-      <button
-        className="btn btn-primary mt-3"
-        onClick={handleSubmit}
-        disabled={attendanceList.length === 0}
-      >
-        Submit Attendance
-      </button>
-
-      {message && (
-        <div className="alert alert-secondary mt-3" role="alert">
-          {message}
-        </div>
+      {selectedSubjectId && attendanceData.length === 0 && (
+        <p>No attendance records available for this subject.</p>
       )}
     </div>
   );
