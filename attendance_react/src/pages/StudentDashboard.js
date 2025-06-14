@@ -12,7 +12,7 @@ const StudentDashboard = () => {
 
   const fetchProfile = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/student/profile', {
+      const res = await fetch('http://localhost:5000/api/students/profile', {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -33,7 +33,7 @@ const StudentDashboard = () => {
 
   const fetchAttendanceStats = async (studentId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/student/${studentId}/attendance/stats`, {
+      const res = await fetch(`http://localhost:5000/api/students/${studentId}/attendance/stats`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
