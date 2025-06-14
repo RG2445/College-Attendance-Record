@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 
 const StudentDashboard = () => {
   const [profile, setProfile] = useState(null);
@@ -13,11 +12,19 @@ const StudentDashboard = () => {
 
   const fetchProfile = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/student/profile', {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch('http://localhost:5000/api/student/profile', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
-      setProfile(res.data);
-      fetchAttendanceStats(res.data._id);
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setProfile(data);
+      fetchAttendanceStats(data._id);
     } catch (err) {
       setError('Failed to fetch student profile.');
       console.error(err);
@@ -26,11 +33,18 @@ const StudentDashboard = () => {
 
   const fetchAttendanceStats = async (studentId) => {
     try {
-      const res = await axios.get(
-        `http://localhost:5000/api/student/${studentId}/attendance/stats`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setAttendanceStats(res.data);
+      const res = await fetch(`http://localhost:5000/api/student/${studentId}/attendance/stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setAttendanceStats(data);
     } catch (err) {
       setError('Failed to fetch attendance stats.');
       console.error(err);
