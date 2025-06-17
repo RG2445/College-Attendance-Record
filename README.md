@@ -17,11 +17,11 @@ Notifications & Alerts
 
 🛠 Tech Stack
 
-Frontend: React.js (Next.js),Tailwind CSS / Bootstap
+Frontend: React.js ,Tailwind CSS / Bootstrap
 
-Backend: Node.js (Express) / Django / Flask
+Backend: Node.js (Express) 
 
-Database: PostgreSQL / MySQL / Firebase
+Database: MongoDB
 
 Authentication: Firebase Auth / JWT
 
