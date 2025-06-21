@@ -142,7 +142,7 @@ router.get('/classes', jwtAuthMiddleware, isAdmin, async (req, res) => {
 
 // Create a new class
 router.post('/classes', jwtAuthMiddleware, isAdmin, async (req, res) => {
-  const { name, branch, students = [] } = req.body;
+  const { name,branch, students = [] } = req.body;
   
   try {
     const newClass = new Class({ name, branch, students });

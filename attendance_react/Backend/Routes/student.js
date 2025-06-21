@@ -4,6 +4,7 @@ const { jwtAuthMiddleware } = require('./../jwt.js');
 const Attendance = require('../Models/Attendance');
 const Student = require('../Models/Student');
 const User = require('../Models/User');
+const mongoose=require('mongoose')
 
 // Create a new student (Admin only)
 router.post('/create', jwtAuthMiddleware, async (req, res) => {
@@ -86,6 +87,93 @@ router.get('/profile', jwtAuthMiddleware, async (req, res) => {
   }
 });
 
+// Get student's overall attendance statistics
+router.get('/:studentId/attendance/stats', jwtAuthMiddleware, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    console.log('Looking up attendance stats for:', studentId);
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ error: 'Invalid student ID' });
+    }
+
+    const attendanceStats = await Attendance.aggregate([
+      {
+        $match: {
+          student: new mongoose.Types.ObjectId(studentId)
+        }
+      },
+      {
+        $group: {
+          _id: '$subject',
+          totalClasses: { $sum: 1 },
+          presentClasses: {
+            $sum: { $cond: [{ $eq: ['$status', 'Present'] }, 1, 0] }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: 'subjects',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'subject'
+        }
+      },
+      {
+        $project: {
+          subject: { $arrayElemAt: ['$subject', 0] },
+          totalClasses: 1,
+          presentClasses: 1,
+          attendancePercentage: {
+            $multiply: [
+              { $divide: ['$presentClasses', '$totalClasses'] },
+              100
+            ]
+          }
+        }
+      }
+    ]);
+
+    res.json(attendanceStats);
+  } catch (err) {
+    console.error('❌ Error in stats route:', err);
+    res.status(500).json({ error: 'Failed to fetch attendance statistics' });
+  }
+});
+
+// Get student's attendance by subject
+router.get('/:studentId/attendance/subject/:subjectId', jwtAuthMiddleware, async (req, res) => {
+  const { studentId, subjectId } = req.params;
+  try {
+    const records = await Attendance.find({
+      student: studentId,
+      subject: subjectId
+    }).populate('subject', 'name code').sort({ date: -1 });
+    
+    res.json(records);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch attendance' });
+  }
+});
+
+// Get student's monthly attendance report
+router.get('/attendance/:studentId/:month', jwtAuthMiddleware, async (req, res) => {
+  const { studentId, month } = req.params;
+  try {
+    const records = await Attendance.find({
+      student: studentId,
+      date: { $regex: `^${month}` } // format: 'YYYY-MM'
+    }).populate('subject', 'name code');
+    
+    res.json(records);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch attendance' });
+  }
+});
+
 // Get student by ID
 router.get('/:id', jwtAuthMiddleware, async (req, res) => {
   try {
@@ -103,8 +191,6 @@ router.get('/:id', jwtAuthMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch student' });
   }
 });
-
-
 
 // Update student by Id
 router.put('/:id', jwtAuthMiddleware, async (req, res) => {
@@ -155,84 +241,6 @@ router.delete('/:id', jwtAuthMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to delete student' });
-  }
-});
-
-// Get student's attendance by subject
-router.get('/:studentId/attendance/subject/:subjectId', jwtAuthMiddleware, async (req, res) => {
-  const { studentId, subjectId } = req.params;
-  try {
-    const records = await Attendance.find({
-      student: studentId,
-      subject: subjectId
-    }).populate('subject', 'name code').sort({ date: -1 });
-    
-    res.json(records);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch attendance' });
-  }
-});
-
-// Get student's monthly attendance report
-router.get('/attendance/:studentId/:month', jwtAuthMiddleware, async (req, res) => {
-  const { studentId, month } = req.params;
-  try {
-    const records = await Attendance.find({
-      student: studentId,
-      date: { $regex: `^${month}` } // format: 'YYYY-MM'
-    }).populate('subject', 'name code');
-    
-    res.json(records);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch attendance' });
-  }
-});
-
-// Get student's overall attendance statistics
-router.get('/:studentId/attendance/stats', jwtAuthMiddleware, async (req, res) => {
-  try {
-    const { studentId } = req.params;
-    
-    const attendanceStats = await Attendance.aggregate([
-      { $match: { student: new require('mongoose').Types.ObjectId(studentId) } },
-      {
-        $group: {
-          _id: '$subject',
-          totalClasses: { $sum: 1 },
-          presentClasses: {
-            $sum: { $cond: [{ $eq: ['$status', 'Present'] }, 1, 0] }
-          }
-        }
-      },
-      {
-        $lookup: {
-          from: 'subjects',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'subject'
-        }
-      },
-      {
-        $project: {
-          subject: { $arrayElemAt: ['$subject', 0] },
-          totalClasses: 1,
-          presentClasses: 1,
-          attendancePercentage: {
-            $multiply: [
-              { $divide: ['$presentClasses', '$totalClasses'] },
-              100
-            ]
-          }
-        }
-      }
-    ]);
-    
-    res.json(attendanceStats);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch attendance statistics' });
   }
 });
 
