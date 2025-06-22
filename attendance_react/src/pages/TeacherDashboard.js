@@ -5,11 +5,11 @@ const TeacherDashboard = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [students, setStudents] = useState([]);
   const [attendanceList, setAttendanceList] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(""); 
   const [message, setMessage] = useState("");
 
   const token = localStorage.getItem("token");
 
-  // Fetch assigned subjects to the teacher
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
@@ -33,26 +33,27 @@ const TeacherDashboard = () => {
     fetchSubjects();
   }, [token]);
 
-  // When subject is selected, fetch students of the class assigned to that subject
   const handleSubjectChange = async (e) => {
     const subjectId = e.target.value;
     setSelectedSubjectId(subjectId);
-    setAttendanceList([]); // Reset previous attendance
+    setAttendanceList([]);
     setMessage("");
 
     if (!subjectId) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/teachers/subject/${subjectId}/students`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/teachers/subject/${subjectId}/students`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       const data = await response.json();
       if (response.ok) {
         setStudents(data);
-        // Initialize attendance with default "Present" for all
         const defaultAttendance = data.map((student) => ({
           studentId: student._id,
           status: "Present",
@@ -66,7 +67,6 @@ const TeacherDashboard = () => {
     }
   };
 
-  // Handle attendance status change
   const handleStatusChange = (studentId, status) => {
     setAttendanceList((prevList) =>
       prevList.map((entry) =>
@@ -75,13 +75,17 @@ const TeacherDashboard = () => {
     );
   };
 
-  // Submit attendance
+  const handleDateChange = (e) => {
+    setSelectedDate(e.target.value);
+  };
+
   const handleSubmitAttendance = async () => {
-    if (!selectedSubjectId || attendanceList.length === 0) return;
+    if (!selectedSubjectId || attendanceList.length === 0 || !selectedDate) {
+      setMessage("❌ Please select subject, date, and mark attendance for all students.");
+      return;
+    }
 
     try {
-      const today = new Date().toISOString().split("T")[0];
-
       const response = await fetch("http://localhost:5000/api/teachers/mark-attendance", {
         method: "POST",
         headers: {
@@ -90,14 +94,14 @@ const TeacherDashboard = () => {
         },
         body: JSON.stringify({
           subjectId: selectedSubjectId,
-          date: today,
+          date: selectedDate,
           attendanceList,
         }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        setMessage(`✅ Attendance marked successfully for ${attendanceList.length} students`);
+        setMessage(`✅ Attendance marked successfully`);
       } else {
         setMessage("❌ Failed to mark attendance: " + data.error);
       }
@@ -132,6 +136,19 @@ const TeacherDashboard = () => {
 
       {students.length > 0 && (
         <>
+          <div className="mb-3">
+            <label htmlFor="dateSelect" className="form-label">
+              Select Date:
+            </label>
+            <input
+              type="date"
+              id="dateSelect"
+              className="form-control"
+              value={selectedDate}
+              onChange={handleDateChange}
+            />
+          </div>
+
           <h5 className="mb-3">Mark Attendance for {students.length} Students</h5>
           <table className="table table-bordered">
             <thead className="table-dark">

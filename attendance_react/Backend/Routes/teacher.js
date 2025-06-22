@@ -140,43 +140,42 @@ router.get('/subject/:subjectId/students', jwtAuthMiddleware, async (req, res) =
 // Mark attendance
 router.post('/mark-attendance', jwtAuthMiddleware, async (req, res) => {
   const { subjectId, date, attendanceList } = req.body;
-  
+
   try {
     const userId = req.user.id;
-    
-    // Verify teacher has access to this subject
+
+    // Ensure teacher has access to the subject
     const teacher = await Teacher.findOne({ user: userId });
     if (!teacher) {
       return res.status(404).json({ error: 'Teacher not found' });
     }
 
-    const subject = await Subject.findOne({ 
-      _id: subjectId, 
-      teacher: teacher._id 
-    });
-    
+    const subject = await Subject.findOne({ _id: subjectId, teacher: teacher._id });
     if (!subject) {
       return res.status(403).json({ error: 'Access denied to this subject' });
     }
 
-    // Mark attendance for each student
+    const isoDate = new Date(date); 
+
+    // Mark or update attendance for each student
     const attendancePromises = attendanceList.map(async (record) => {
       const { studentId, status } = record;
+
       return await Attendance.findOneAndUpdate(
-        { student: studentId, subject: subjectId, date },
-        { student: studentId, subject: subjectId, date, status },
+        { student: studentId, subject: subjectId, date: isoDate },
+        { student: studentId, subject: subjectId, date: isoDate, status },
         { upsert: true, new: true }
       );
     });
 
     await Promise.all(attendancePromises);
-    
-    res.json({ 
-      message: 'Attendance marked successfully',
-      count: attendanceList.length
+
+    res.json({
+      message: '✅ Attendance marked/updated successfully',
+      count: attendanceList.length,
     });
   } catch (err) {
-    console.error(err);
+    console.error('❌ Failed to mark attendance:', err);
     res.status(500).json({ error: 'Failed to mark attendance' });
   }
 });
@@ -193,6 +192,8 @@ router.get('/attendance/:subjectId/:date', jwtAuthMiddleware, async (req, res) =
       return res.status(404).json({ error: 'Teacher not found' });
     }
 
+    const isoDate = new Date(date);
+
     const subject = await Subject.findOne({ 
       _id: subjectId, 
       teacher: teacher._id 
@@ -204,7 +205,7 @@ router.get('/attendance/:subjectId/:date', jwtAuthMiddleware, async (req, res) =
 
     const records = await Attendance.find({ 
       subject: subjectId, 
-      date 
+      isoDate 
     }).populate('student', 'name branch');
     
     res.json(records);
@@ -214,7 +215,7 @@ router.get('/attendance/:subjectId/:date', jwtAuthMiddleware, async (req, res) =
   }
 });
 
-// Get all attendance records for a subject (with pagination)
+// Get all attendance records for a subject 
 router.get('/subject/:subjectId/attendance', jwtAuthMiddleware, async (req, res) => {
   const { subjectId } = req.params;
   const { page = 1, limit = 50, startDate, endDate } = req.query;
@@ -237,13 +238,11 @@ router.get('/subject/:subjectId/attendance', jwtAuthMiddleware, async (req, res)
       return res.status(403).json({ error: 'Access denied to this subject' });
     }
 
-    // Build query filter
     let filter = { subject: subjectId };
     if (startDate && endDate) {
       filter.date = { $gte: startDate, $lte: endDate };
     }
 
-    // Get paginated results
     const skip = (page - 1) * limit;
     const records = await Attendance.find(filter)
       .populate('student', 'name branch')

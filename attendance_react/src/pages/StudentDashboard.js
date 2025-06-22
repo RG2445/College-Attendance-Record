@@ -52,7 +52,7 @@ const StudentDashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    navigate('/login'); // adjust path if your route is different
+    navigate('/login'); 
   };
 
   if (error) return <p className="error-text">{error}</p>;
