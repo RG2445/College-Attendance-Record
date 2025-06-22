@@ -7,7 +7,7 @@ Here Teachers can mark attendance and students can view it and react to it. It a
 
 User Authentication (Students, Teachers, Admins)
 
-Attendance Management (Mark/View/React to Attendance)
+Attendance Management (Mark/View/ Attendance)
 
 Timetable & Exam Schedules
 
@@ -25,4 +25,4 @@ Database: MongoDB
 
 Authentication: Firebase Auth / JWT
 
-Hosting: Vercel (Frontend), AWS / Render (Backend)
+Hosting: Vercel (Frontend), Render (Backend)
