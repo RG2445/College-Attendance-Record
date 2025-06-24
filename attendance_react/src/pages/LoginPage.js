@@ -174,9 +174,6 @@ export default function LoginPage() {
                     Remember me
                   </label>
                 </div>
-                <Link href="/" className="text-primary text-decoration-none">
-                  Forgot password?
-                </Link>
               </div>
 
               <div className="d-grid">
