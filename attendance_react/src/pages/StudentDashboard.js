@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell
 } from 'recharts';
 import './StudentDashboard.css';
+
+const COLORS = ['#4A90E2', '#FF8C00'];
 
 const StudentDashboard = () => {
   const [profile, setProfile] = useState(null);
   const [attendanceStats, setAttendanceStats] = useState([]);
+  const [overallAttendance, setOverallAttendance] = useState(null);
   const [error, setError] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const navigate = useNavigate();
@@ -16,7 +19,7 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     fetchProfile();
-    // eslint-disable-next-line
+    //eslint-disable-next-line
   }, []);
 
   const fetchProfile = async () => {
@@ -24,7 +27,6 @@ const StudentDashboard = () => {
       const res = await fetch('http://localhost:5000/api/students/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
-
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       setProfile(data);
@@ -40,10 +42,13 @@ const StudentDashboard = () => {
       const res = await fetch(`http://localhost:5000/api/students/${studentId}/attendance/stats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       setAttendanceStats(data);
+
+      const total = data.reduce((sum, stat) => sum + stat.totalClasses, 0);
+      const present = data.reduce((sum, stat) => sum + stat.presentClasses, 0);
+      setOverallAttendance({ total, present });
     } catch (err) {
       setError('Failed to fetch attendance stats.');
       console.error(err);
@@ -52,7 +57,7 @@ const StudentDashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    navigate('/login'); 
+    navigate('/login');
   };
 
   if (error) return <p className="error-text">{error}</p>;
@@ -114,23 +119,61 @@ const StudentDashboard = () => {
               </table>
             </div>
 
-            <div style={{ height: 350, marginTop: '2rem' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={attendanceStats.map(stat => ({
-                    name: stat.subject?.code || 'N/A',
-                    percentage: +stat.attendancePercentage.toFixed(2)
-                  }))}
-                  margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 100]} tickFormatter={val => `${val}%`} />
-                  <Tooltip formatter={(val) => `${val}%`} />
-                  <Legend />
-                  <Bar dataKey="percentage" fill="#4A90E2" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="charts-container">
+              <div style={{ height: 350, marginTop: '2rem' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={attendanceStats.map(stat => ({
+                      name: stat.subject?.code || 'N/A',
+                      percentage: +stat.attendancePercentage.toFixed(2)
+                    }))}
+                    margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis domain={[0, 100]} tickFormatter={val => `${val}%`} />
+                    <Tooltip formatter={(val) => `${val}%`} />
+                    <Legend />
+                    <Bar dataKey="percentage" fill="#4A90E2" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {overallAttendance && (
+                <div className="overall-attendance" style={{ marginTop: '3rem', textAlign: 'center' }}>
+                  <h3>📈 Overall Attendance</h3>
+                  <p>
+                    <strong>{((overallAttendance.present / overallAttendance.total) * 100).toFixed(2)}%</strong> 
+                    &nbsp;({overallAttendance.present}/{overallAttendance.total} classes attended)
+                  </p>
+                  <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer>
+                      <PieChart>
+                        <Pie
+                          dataKey="value"
+                          data={[
+                            { name: 'Present', value: overallAttendance.present },
+                            { name: 'Absent', value: overallAttendance.total - overallAttendance.present }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          label
+                        >
+                          {[
+                            { name: 'Present', value: overallAttendance.present },
+                            { name: 'Absent', value: overallAttendance.total - overallAttendance.present }
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
