@@ -8,14 +8,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
   PieChart,
   Pie,
   Cell,
 } from "recharts";
-import "./StudentDashboard.css";
+import "./StudentDashboard.css"; // Ensure this path is correct
 
-const COLORS = ["#4A90E2", "#FF8C00"];
+const COLORS = ["#4A90E2", "#FF8C00"]; // Colors for the Pie Chart
 
 const StudentDashboard = () => {
   const [profile, setProfile] = useState(null);
@@ -23,24 +22,26 @@ const StudentDashboard = () => {
   const [overallAttendance, setOverallAttendance] = useState(null);
   const [error, setError] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false); // State to manage logout button loading
   const navigate = useNavigate();
-  const dropdownRef = useRef(null);
+  const dropdownRef = useRef(null); // Ref for closing dropdown on outside click
 
   const token = localStorage.getItem("token");
 
+  // Effect to check for token and fetch profile on component mount
   useEffect(() => {
     if (!token) {
       navigate("/login");
       return;
     }
     fetchProfile();
-    //eslint-disable-next-line
-  }, []);
+    // eslint-disable-next-line
+  }, []); // Empty dependency array means this runs once on mount
 
-  // Close dropdown when clicking outside
+  // Effect to close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Close dropdown if clicked outside of the profile wrapper entirely
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
       }
@@ -53,29 +54,39 @@ const StudentDashboard = () => {
   }, []);
 
   const fetchProfile = async () => {
+    setError(null); // Clear previous errors
     try {
       const res = await fetch("http://localhost:5000/api/students/profile", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
+
       if (res.status === 401) {
+        // Token expired or invalid
         localStorage.removeItem("token");
         navigate("/login");
         return;
       }
-      
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
       const data = await res.json();
       setProfile(data);
-      fetchAttendanceStats(data._id);
+      // Fetch attendance stats only after profile is successfully loaded
+      if (data._id) { // Ensure student ID exists before fetching attendance
+          fetchAttendanceStats(data._id);
+      } else {
+          console.warn("Student ID not found in profile data.");
+      }
     } catch (err) {
-      setError("Failed to fetch student profile.");
+      setError("Failed to fetch student profile. Please try again.");
       console.error("Profile fetch error:", err);
     }
   };
 
   const fetchAttendanceStats = async (studentId) => {
+    setError(null); // Clear previous errors
     try {
       const res = await fetch(
         `http://localhost:5000/api/students/${studentId}/attendance/stats`,
@@ -83,33 +94,39 @@ const StudentDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      
+
       if (res.status === 401) {
+        // Token expired or invalid
         localStorage.removeItem("token");
         navigate("/login");
         return;
       }
-      
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
       const data = await res.json();
       setAttendanceStats(data);
 
+      // Calculate overall attendance
       const total = data.reduce((sum, stat) => sum + stat.totalClasses, 0);
       const present = data.reduce((sum, stat) => sum + stat.presentClasses, 0);
       setOverallAttendance({ total, present });
     } catch (err) {
-      setError("Failed to fetch attendance stats.");
+      setError("Failed to fetch attendance statistics. Please try again.");
       console.error("Attendance fetch error:", err);
     }
   };
 
   const handleLogout = async () => {
-    setIsLoggingOut(true);
-    setShowDropdown(false);
-    
+    setIsLoggingOut(true); // Disable button and show loading state
+    setShowDropdown(false); // Close dropdown immediately
+
     try {
-      // Call logout API endpoint
+      // Call logout API endpoint (optional, but good practice to invalidate server-side session)
+      // Note: This API endpoint might not exist on your backend.
+      // The crucial part for client-side logout is clearing localStorage.
       const response = await fetch("http://localhost:5000/api/auth/logout", {
         method: "POST",
         headers: {
@@ -119,37 +136,37 @@ const StudentDashboard = () => {
       });
 
       if (response.ok) {
-        console.log("Logout successful");
+        console.log("Logout successful on server.");
       } else {
-        console.error("Logout failed on server");
+        console.error("Logout failed on server:", response.statusText);
       }
     } catch (error) {
-      console.error("Error during logout:", error);
+      console.error("Error during logout API call:", error);
     } finally {
       // Always clear local storage and navigate, even if API call fails
       localStorage.removeItem("token");
-      localStorage.removeItem("userRole");
+      localStorage.removeItem("userRole"); // Clear any other relevant user data
       localStorage.removeItem("userId");
       localStorage.removeItem("userType");
-      setIsLoggingOut(false);
-      navigate("/login", { replace: true });
+      setIsLoggingOut(false); // Re-enable button state (though we're navigating away)
+      navigate("/login", { replace: true }); // Use replace to prevent back navigation to dashboard
     }
   };
 
   const toggleDropdown = (e) => {
+    // This e.stopPropagation() is important to prevent the document's mousedown listener
+    // from immediately closing the dropdown after it's opened by the click on avatar-container.
     e.stopPropagation();
     setShowDropdown((prev) => !prev);
   };
 
+  // Render error state
   if (error) {
     return (
       <div className="dashboard-container">
         <div className="error-container">
           <p className="error-text">{error}</p>
-          <button 
-            className="retry-button"
-            onClick={() => window.location.reload()}
-          >
+          <button className="retry-button" onClick={() => window.location.reload()}>
             Retry
           </button>
         </div>
@@ -157,17 +174,19 @@ const StudentDashboard = () => {
     );
   }
 
+  // Render loading state
   if (!profile) {
     return (
       <div className="dashboard-container">
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <p className="loading-text">Loading...</p>
+          <p className="loading-text">Loading student dashboard...</p>
         </div>
       </div>
     );
   }
 
+  // Main Dashboard Render
   return (
     <div className="dashboard-container">
       <header className="dashboard-header">
@@ -176,8 +195,10 @@ const StudentDashboard = () => {
             <span className="dashboard-icon">🎓</span>
             Student Dashboard
           </h1>
-          
+
+          {/* Profile Wrapper with Ref for click-outside-to-close */}
           <div className="profile-wrapper" ref={dropdownRef}>
+            {/* Avatar Container: This is the clickable area */}
             <div className="avatar-container" onClick={toggleDropdown}>
               <img
                 src={`https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=4A90E2&color=fff&size=40`}
@@ -188,11 +209,12 @@ const StudentDashboard = () => {
                 <span className="profile-name">{profile.name}</span>
                 <span className="profile-role">Student</span>
               </div>
-              <span className={`dropdown-arrow ${showDropdown ? 'open' : ''}`}>
+              <span className={`dropdown-arrow ${showDropdown ? "open" : ""}`}>
                 ▼
               </span>
             </div>
-            
+
+            {/* Dropdown Menu: Conditionally rendered based on showDropdown state */}
             {showDropdown && (
               <div className="dropdown-menu">
                 <div className="dropdown-header">
@@ -204,20 +226,21 @@ const StudentDashboard = () => {
                   </div>
                   <div className="dropdown-user-info">
                     <span className="dropdown-name">{profile.name}</span>
-                    <span className="dropdown-email">{profile.user.email}</span>
+                    {/* Access email from profile.user.email */}
+                    <span className="dropdown-email">{profile.user?.email || 'N/A'}</span>
                     <span className="dropdown-enrollment">
                       {profile.enrollmentNumber}
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="dropdown-divider"></div>
-                
+
                 <div className="dropdown-items">
-                  <button 
-                    onClick={handleLogout} 
+                  <button
+                    onClick={handleLogout}
                     className="dropdown-item logout-btn"
-                    disabled={isLoggingOut}
+                    disabled={isLoggingOut} // Disable button when logging out
                   >
                     {isLoggingOut ? (
                       <>
@@ -246,7 +269,7 @@ const StudentDashboard = () => {
               Profile Information
             </h2>
           </div>
-          
+
           <div className="profile-grid">
             <div className="profile-item">
               <label>Name</label>
@@ -254,7 +277,7 @@ const StudentDashboard = () => {
             </div>
             <div className="profile-item">
               <label>Email</label>
-              <span>{profile.user.email}</span>
+              <span>{profile.user?.email || 'N/A'}</span>
             </div>
             <div className="profile-item">
               <label>Enrollment No</label>
@@ -278,11 +301,12 @@ const StudentDashboard = () => {
               Attendance Statistics
             </h2>
           </div>
-          
+
           {attendanceStats.length === 0 ? (
             <div className="no-data">
               <div className="no-data-icon">📚</div>
-              <p>No attendance data available.</p>
+              <p>No attendance data available yet.</p>
+              <p>Please check back later or contact your administration.</p>
             </div>
           ) : (
             <>
@@ -309,10 +333,13 @@ const StudentDashboard = () => {
                         <td>{stat.totalClasses}</td>
                         <td>{stat.presentClasses}</td>
                         <td>
-                          <span 
+                          <span
                             className={`percentage ${
-                              stat.attendancePercentage >= 75 ? 'good' : 
-                              stat.attendancePercentage >= 50 ? 'average' : 'poor'
+                              stat.attendancePercentage >= 75
+                                ? "good"
+                                : stat.attendancePercentage >= 50
+                                ? "average"
+                                : "poor"
                             }`}
                           >
                             {stat.attendancePercentage.toFixed(1)}%
@@ -343,8 +370,8 @@ const StudentDashboard = () => {
                           tickFormatter={(val) => `${val}%`}
                         />
                         <Tooltip formatter={(val) => `${val}%`} />
-                        <Bar 
-                          dataKey="percentage" 
+                        <Bar
+                          dataKey="percentage"
                           fill="#4A90E2"
                           radius={[4, 4, 0, 0]}
                         />
@@ -360,8 +387,10 @@ const StudentDashboard = () => {
                       <div className="stat-item">
                         <span className="stat-value">
                           {(
-                            (overallAttendance.present / overallAttendance.total) * 100
-                          ).toFixed(1)}%
+                            (overallAttendance.present / overallAttendance.total) *
+                            100
+                          ).toFixed(1)}
+                          %
                         </span>
                         <span className="stat-label">Overall Percentage</span>
                       </div>
@@ -372,7 +401,7 @@ const StudentDashboard = () => {
                         <span className="stat-label">Classes Attended</span>
                       </div>
                     </div>
-                    
+
                     <div className="pie-chart-wrapper">
                       <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
@@ -385,17 +414,25 @@ const StudentDashboard = () => {
                               },
                               {
                                 name: "Absent",
-                                value: overallAttendance.total - overallAttendance.present,
+                                value:
+                                  overallAttendance.total -
+                                  overallAttendance.present,
                               },
                             ]}
                             cx="50%"
                             cy="50%"
                             outerRadius={80}
-                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            label={({ name, percent }) =>
+                              `${name} ${(percent * 100).toFixed(0)}%`
+                            }
                           >
                             {[
                               { value: overallAttendance.present },
-                              { value: overallAttendance.total - overallAttendance.present },
+                              {
+                                value:
+                                  overallAttendance.total -
+                                  overallAttendance.present,
+                              },
                             ].map((entry, index) => (
                               <Cell
                                 key={`cell-${index}`}
