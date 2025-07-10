@@ -79,7 +79,7 @@ const TeacherDashboard = () => {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [token, navigate]); // Removed teacherProfile from dependencies to prevent re-fetching profile on its update
+  }, [token, navigate]);
 
   const fetchSubjects = async () => {
     try {
@@ -126,7 +126,7 @@ const TeacherDashboard = () => {
         setStudents(data);
         const defaultAttendance = data.map((student) => ({
           studentId: student._id,
-          status: "Present",
+          status: "Present", // Default to Present
         }));
         setAttendanceList(defaultAttendance);
       } else {
@@ -139,7 +139,8 @@ const TeacherDashboard = () => {
     }
   };
 
-  const handleStatusChange = (studentId, status) => {
+  // Function to set attendance status (Present or Absent)
+  const setStudentAttendance = (studentId, status) => {
     setAttendanceList((prevList) =>
       prevList.map((entry) =>
         entry.studentId === studentId ? { ...entry, status } : entry
@@ -279,7 +280,6 @@ const TeacherDashboard = () => {
                   <div className="dropdown-user-info">
                     <span className="dropdown-name">{teacherProfile.name}</span>
                     <span className="dropdown-email">{teacherProfile.user?.email || 'N/A'}</span>
-                    <span className="dropdown-id">Teacher ID: {teacherProfile.teacherId}</span>
                   </div>
                 </div>
 
@@ -327,14 +327,6 @@ const TeacherDashboard = () => {
             <div className="profile-item">
               <label>Email</label>
               <span>{teacherProfile.user?.email || 'N/A'}</span>
-            </div>
-            <div className="profile-item">
-              <label>Teacher ID</label>
-              <span>{teacherProfile.teacherId}</span>
-            </div>
-            <div className="profile-item">
-              <label>Department</label>
-              <span>{teacherProfile.department}</span>
             </div>
           </div>
         </section>
@@ -396,25 +388,36 @@ const TeacherDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map((student, index) => (
-                      <tr key={student._id}>
-                        <td>{index + 1}</td>
-                        <td>{student.name}</td>
-                        <td>{student.enrollmentNumber}</td>
-                        <td>
-                          <select
-                            value={
-                              attendanceList.find((a) => a.studentId === student._id)?.status || "Present"
-                            }
-                            onChange={(e) => handleStatusChange(student._id, e.target.value)}
-                            className="form-select status-select"
-                          >
-                            <option value="Present">Present</option>
-                            <option value="Absent">Absent</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
+                    {students.map((student, index) => {
+                      const attendanceEntry = attendanceList.find(
+                        (a) => a.studentId === student._id
+                      );
+                      const currentStatus = attendanceEntry?.status || "Present"; // Default if not found
+
+                      return (
+                        <tr key={student._id}>
+                          <td>{index + 1}</td>
+                          <td>{student.name}</td>
+                          <td>{student.enrollmentNumber}</td>
+                          <td>
+                            <div className="status-buttons-container">
+                              <button
+                                className={`status-btn present-btn ${currentStatus === "Present" ? "active" : ""}`}
+                                onClick={() => setStudentAttendance(student._id, "Present")}
+                              >
+                                Present
+                              </button>
+                              <button
+                                className={`status-btn absent-btn ${currentStatus === "Absent" ? "active" : ""}`}
+                                onClick={() => setStudentAttendance(student._id, "Absent")}
+                              >
+                                Absent
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
