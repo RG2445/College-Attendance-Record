@@ -8,7 +8,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
   PieChart,
   Pie,
   Cell,
@@ -31,7 +30,7 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     if (!token) {
-      navigate("/login");
+      navigate("/");
       return;
     }
     fetchProfile();
@@ -60,7 +59,7 @@ const StudentDashboard = () => {
       
       if (res.status === 401) {
         localStorage.removeItem("token");
-        navigate("/login");
+        navigate("/");
         return;
       }
       
@@ -86,7 +85,7 @@ const StudentDashboard = () => {
       
       if (res.status === 401) {
         localStorage.removeItem("token");
-        navigate("/login");
+        navigate("/");
         return;
       }
       
@@ -108,7 +107,7 @@ const StudentDashboard = () => {
     setIsLoggingOut(true);
     setShowDropdown(false);
     localStorage.clear();
-    window.location.href = "/login";
+    window.location.href = "/";
     setIsLoggingOut(false);
   }
   

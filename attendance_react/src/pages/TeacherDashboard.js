@@ -28,13 +28,13 @@ const TeacherDashboard = () => {
       setMessage(""); // Clear any previous messages
 
       if (!token) {
-        navigate("/login");
+        navigate("/");
         return;
       }
 
       // Fetch teacher profile
       try {
-        const res = await fetch("http://localhost:5000/api/teachers/profile", {
+        const res = await fetch("http://localhost:5000/api/teachers/profile/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -44,7 +44,7 @@ const TeacherDashboard = () => {
           localStorage.removeItem("userRole");
           localStorage.removeItem("userId");
           localStorage.removeItem("userType");
-          navigate("/login", { replace: true });
+          navigate("/", { replace: true });
           return;
         }
 
@@ -209,7 +209,7 @@ const TeacherDashboard = () => {
       localStorage.removeItem("userId");
       localStorage.removeItem("userType");
       setIsLoggingOut(false);
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
     }
   };
 
@@ -233,7 +233,7 @@ const TeacherDashboard = () => {
       <div className="error-container-full">
         <h2>Failed to Load Dashboard</h2>
         <p style={{ fontSize: '1.1rem', textAlign: 'center' }}>{message || "There was an error loading your profile. Please try logging in again."}</p>
-        <button onClick={() => navigate("/login", { replace: true })} className="btn btn-light mt-3">
+        <button onClick={() => navigate("/", { replace: true })} className="btn btn-light mt-3">
           Go to Login
         </button>
       </div>
