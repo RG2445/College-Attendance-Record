@@ -23,6 +23,7 @@ const StudentDashboard = () => {
   const [overallAttendance, setOverallAttendance] = useState(null);
   const [error, setError] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
 
@@ -104,9 +105,11 @@ const StudentDashboard = () => {
   };
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     setShowDropdown(false);
     localStorage.clear();
     window.location.href = "/login";
+    setIsLoggingOut(false);
   }
   
 
