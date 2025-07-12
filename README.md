@@ -36,22 +36,21 @@ Hosting: Vercel (Frontend), Render (Backend)
 <img width="1918" height="1079" alt="Screenshot 2025-07-12 152929" src="https://github.com/user-attachments/assets/4eebd3ee-f17e-4fa2-9715-1a88d8273408" />
 
 
-******HOW TO RUN LOCALLY:****
+**HOW TO RUN LOCALLY:**
 Follow the steps below to run the project on your local machine.
 
 ###  Clone the Repository
 
-```bash
+
 git clone https://github.com/RG2445/College-Attendance-Record.git
 
-``` bash
+
 *BACKEND SETUP*
 cd attendance_react
 cd Backend
 npm i
 npm start
 
-```bash
 *Frontend*
 cd attendance_react
 npm i
