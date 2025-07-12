@@ -41,13 +41,10 @@ Follow the steps below to run the project on your local machine.
 
 ###  Clone the Repository
 
-
-git clone https://github.com/RG2445/College-Attendance-Record.git
-
+```bash  git clone https://github.com/RG2445/College-Attendance-Record.git
 
 *BACKEND SETUP*
-cd attendance_react
-cd Backend
+cd attendance_react/Backend
 npm i
 npm start
 
@@ -55,6 +52,14 @@ npm start
 cd attendance_react
 npm i
 npm start
+``` 
+
+**Authors**
+
+- [@RG2445](https://github.com/RG2445) 
+- [@Sourabhgupta-11](https://github.com/Sourabhgupta-11) 
+
+
 
 
 
