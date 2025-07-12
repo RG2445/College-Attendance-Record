@@ -1,7 +1,8 @@
 # College-Attendance
 This is a Website for College Attendance and Management System.
 
-Here Teachers can mark attendance and students can view it and react to it. It also includes assignments,timetable ,datesheet,assignments and other notifications.
+Here Teachers can mark attendance and students can view it and react to it. will be adding features including assignments,timetable ,datesheet,assignments and other notifications.
+It ensures transparency for students and they can view live data anytime.
 
 📌 Features
 
@@ -9,15 +10,13 @@ User Authentication (Students, Teachers, Admins)
 
 Attendance Management (Mark/View/ Attendance)
 
-Timetable & Exam Schedules
+Timetable & Exam Schedules(not developed yet)
 
-Assignment Submission & Leave Applications
-
-Notifications & Alerts
+Notifications & Alerts(not developed yet)
 
 🛠 Tech Stack
 
-Frontend: React.js ,Tailwind CSS / Bootstrap
+Frontend: React.js ,Tailwind CSS 
 
 Backend: Node.js (Express) 
 
