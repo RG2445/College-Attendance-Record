@@ -163,19 +163,6 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="mb-3 d-flex justify-content-between align-items-center">
-                <div className="form-check">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="rememberMe"
-                  />
-                  <label className="form-check-label" htmlFor="rememberMe">
-                    Remember me
-                  </label>
-                </div>
-              </div>
-
               <div className="d-grid">
                 <button type="submit" className="btn btn-primary">
                   Log In
