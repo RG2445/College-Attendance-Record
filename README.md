@@ -54,10 +54,13 @@ npm i
 npm start
 ```
 **DEMO CREDENTIALS:**
-  EMAIL-soumya.123@gmail.com
-  PASSWORD-soumya$123
-**Authors**
+  
+  EMAIL:soumya.123@gmail.com
+  PASSWORD: Soumya$123
 
+  
+
+**Authors**
 - [@RG2445](https://github.com/RG2445) 
 - [@Sourabhgupta-11](https://github.com/Sourabhgupta-11)
 - [@Tanz2005](https://github.com/tanz2005)
