@@ -10,9 +10,6 @@ User Authentication (Students, Teachers, Admins)
 
 Attendance Management (Mark/View/ Attendance)
 
-Timetable & Exam Schedules(not developed yet)
-
-Notifications & Alerts(not developed yet)
 
 🛠 Tech Stack
 
@@ -22,7 +19,7 @@ Backend: Node.js (Express)
 
 Database: MongoDB
 
-Authentication: Firebase Auth / JWT
+Authentication: JWT
 
 Hosting: Vercel (Frontend), Render (Backend)
 
@@ -36,7 +33,7 @@ Hosting: Vercel (Frontend), Render (Backend)
 <img width="1905" height="1079" alt="Screenshot 2025-07-12 153606" src="https://github.com/user-attachments/assets/4a081dfe-f506-4f36-9202-d953ae4d3ce1" />
 
 
-**HOW TO RUN LOCALLY:**
+**HOW TO RUN FOR YOURSELF:**
 Follow the steps below to run the project on your local machine.
 
 ###  Clone the Repository
