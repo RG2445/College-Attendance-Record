@@ -58,70 +58,93 @@ router.get('/users', jwtAuthMiddleware, isAdmin, async (req, res) => {
 
 // Create a new user (generic)
 router.post('/users', jwtAuthMiddleware, isAdmin, async (req, res) => {
-  const { email, password, role } = req.body;
-  
+  const { email, password, role, name, branch } = req.body;
+
   try {
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
 
+    // Create User
     const newUser = new User({ email, password, role });
     await newUser.save();
-    
-    res.status(201).json({ 
-      message: 'User created successfully',
-      user: { id: newUser._id, email: newUser.email, role: newUser.role }
+
+    if (role === 'student') {
+      const student = new Student({
+        user: newUser._id,
+        name: name || 'Unnamed Student',
+        branch: branch || 'CSE',
+      });
+      await student.save();
+    } else if (role === 'teacher') {
+      const teacher = new Teacher({
+        user: newUser._id,
+        name: name || 'Unnamed Teacher',
+        subjects: [],
+      });
+      await teacher.save();
+    }
+
+    res.status(201).json({
+      message: 'User created with profile successfully',
+      user: { id: newUser._id, email: newUser.email, role: newUser.role },
     });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to create user' });
+    res.status(500).json({ error: 'Failed to create user and profile' });
   }
 });
 
+
 // Delete user
 router.delete('/users/:id', jwtAuthMiddleware, isAdmin, async (req, res) => {
-  try {
-    const userId = req.params.id;
-    
-    // Find user and related profiles
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+  const userId = req.params.id;
 
-    // Delete related profiles based on role
+  try {
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
     if (user.role === 'student') {
       const student = await Student.findOne({ user: userId });
       if (student) {
-        // Remove from class
+        // Remove student from class
         if (student.classId) {
           await Class.findByIdAndUpdate(student.classId, {
             $pull: { students: student._id }
           });
         }
-        // Delete attendance records
+
+        // Delete attendance
         await Attendance.deleteMany({ student: student._id });
+
+        // Delete student profile
         await Student.findByIdAndDelete(student._id);
       }
-    } else if (user.role === 'teacher') {
+    }
+
+    if (user.role === 'teacher') {
       const teacher = await Teacher.findOne({ user: userId });
       if (teacher) {
-        // Remove teacher from subjects
+        // Unassign subjects
         await Subject.updateMany(
           { teacher: teacher._id },
           { $unset: { teacher: 1 } }
         );
+
+        // Delete teacher profile
         await Teacher.findByIdAndDelete(teacher._id);
       }
     }
 
+    // Finally, delete the user
     await User.findByIdAndDelete(userId);
-    res.json({ message: 'User deleted successfully' });
+    res.json({ message: 'User and associated profile deleted successfully' });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to delete user' });
+    res.status(500).json({ error: 'Failed to delete user and profile' });
   }
 });
 
@@ -401,6 +424,17 @@ router.post('/unassign-subject', jwtAuthMiddleware, isAdmin, async (req, res) =>
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to unassign subject' });
+  }
+});
+
+// In routes/admin.js or create a separate route like /api/teachers
+router.get('/teachers', jwtAuthMiddleware, isAdmin, async (req, res) => {
+  try {
+    const teachers = await Teacher.find().populate('user', 'email');
+    res.json(teachers);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch teachers' });
   }
 });
 
