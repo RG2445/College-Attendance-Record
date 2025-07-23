@@ -464,3 +464,14 @@
   .status-buttons-container { flex-direction: column; gap: 4px; } /* Stack buttons on very small screens */
   .status-btn { width: 100%; }
 }
+.summary-table th,
+.summary-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.loading-summary {
+  text-align: center;
+  padding: 1rem;
+  color: #007bff;
+}

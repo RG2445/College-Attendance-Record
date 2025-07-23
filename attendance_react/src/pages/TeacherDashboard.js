@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import "./TeacherDashboard.css"; // Import the new CSS file
+import "./TeacherDashboard.css";
+import NavbarWithSidebar from '../components/NavbarWithSidebar';
+
 
 const TeacherDashboard = () => {
   const [subjects, setSubjects] = useState([]);
@@ -11,215 +13,210 @@ const TeacherDashboard = () => {
   const [message, setMessage] = useState("");
   const [teacherProfile, setTeacherProfile] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [errorLoadingProfile, setErrorLoadingProfile] = useState(false);
+  const [attendanceSummary, setAttendanceSummary] = useState([]);
 
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
-
   const token = localStorage.getItem("token");
 
-  // Effect to handle initial data fetching and token validation
+  // ----------------------------------- Initialization ----------------------------------- //
   useEffect(() => {
     const initializeDashboard = async () => {
-      setLoadingProfile(true);
-      setErrorLoadingProfile(false); // Reset error state
-      setMessage(""); // Clear any previous messages
-
       if (!token) {
         navigate("/");
         return;
       }
 
-      // Fetch teacher profile
+      setLoadingProfile(true);
+      setErrorLoadingProfile(false);
+      setMessage("");
+
+//-------------------------------------------Teacher profile-------------------------------------------//
       try {
         const res = await fetch("http://localhost:5000/api/teachers/profile/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         if (res.status === 401) {
-          // Token expired or invalid
-          localStorage.removeItem("token");
-          localStorage.removeItem("userRole");
-          localStorage.removeItem("userId");
-          localStorage.removeItem("userType");
+          localStorage.clear();
           navigate("/", { replace: true });
           return;
         }
 
         if (!res.ok) {
           const errorData = await res.json();
-          throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+          throw new Error(errorData.message || `HTTP error ${res.status}`);
         }
 
         const data = await res.json();
         setTeacherProfile(data);
-        // After successfully fetching profile, then fetch subjects
-        fetchSubjects();
-      } catch (err) {
-        console.error("Teacher profile fetch error:", err);
+        await fetchSubjects();
+        await fetchAttendanceSummary();
+
+      } 
+      catch (err) {
         setMessage("❌ Failed to fetch teacher profile. Please try again.");
         setErrorLoadingProfile(true);
-      } finally {
+      } 
+      finally {
         setLoadingProfile(false);
       }
     };
-
+//-----------------------------------------------------------------------------------------------------//
     initializeDashboard();
 
-    // Cleanup for dropdown click outside
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setShowDropdown(false);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+    // eslint-disable-next-line
   }, [token, navigate]);
+  
 
+// -------------------------------------------- Fetch Subjects -------------------------------------------- //
   const fetchSubjects = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/teachers/subjects", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const res = await fetch("http://localhost:5000/api/teachers/subjects", {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await response.json();
-      if (response.ok) {
+      const data = await res.json();
+      if (res.ok) {
         setSubjects(data);
-      } else {
-        console.error("Failed to fetch subjects", data.error);
+      } 
+      else {
         setMessage("❌ Failed to fetch subjects.");
       }
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
+    } 
+    catch (err) {
       setMessage("❌ Error fetching subjects.");
     }
   };
 
+// ----------------------------------------- Subject Change ---------------------------------------- //
   const handleSubjectChange = async (e) => {
     const subjectId = e.target.value;
     setSelectedSubjectId(subjectId);
+    setStudents([]);
     setAttendanceList([]);
     setMessage("");
-    setStudents([]); // Clear students when subject changes
 
     if (!subjectId) return;
 
     try {
-      const response = await fetch(
+      const res = await fetch(
         `http://localhost:5000/api/teachers/subject/${subjectId}/students`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      const data = await response.json();
-      if (response.ok) {
+      const data = await res.json();
+      if (res.ok) {
         setStudents(data);
-        const defaultAttendance = data.map((student) => ({
-          studentId: student._id,
-          status: "Present", // Default to Present
-        }));
-        setAttendanceList(defaultAttendance);
-      } else {
-        console.error("Failed to fetch students", data.error);
+        setAttendanceList(
+          data.map((student) => ({
+            studentId: student._id,
+            roll:student.enrollmentNumber,
+            status: "Present",
+          }))
+        );
+      } 
+      else {
         setMessage("❌ Failed to fetch students for this subject.");
       }
-    } catch (error) {
-      console.error("Error fetching students:", error);
+    } 
+    catch (err) {
       setMessage("❌ Error fetching students.");
     }
   };
 
-  // Function to set attendance status (Present or Absent)
-  const setStudentAttendance = (studentId, status) => {
-    setAttendanceList((prevList) =>
-      prevList.map((entry) =>
-        entry.studentId === studentId ? { ...entry, status } : entry
-      )
-    );
-  };
-
-  const handleDateChange = (e) => {
-    setSelectedDate(e.target.value);
-  };
-
-  const handleSubmitAttendance = async () => {
-    if (!selectedSubjectId || attendanceList.length === 0 || !selectedDate) {
-      setMessage("❌ Please select subject, date, and mark attendance for all students.");
-      return;
-    }
+  // ----------------------------------- Attendance Summary ----------------------------------- //
+  const fetchAttendanceSummary = async (selectedSubjectId) => {
+    if (!selectedSubjectId) return;
 
     try {
-      const response = await fetch("http://localhost:5000/api/teachers/mark-attendance", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          subjectId: selectedSubjectId,
-          date: selectedDate,
-          attendanceList,
-        }),
-      });
+      const res = await fetch(
+        `http://localhost:5000/api/teachers/subject/${selectedSubjectId}/summary`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
-      const data = await response.json();
-      if (response.ok) {
-        setMessage(`✅ Attendance marked successfully`);
+      const data = await res.json();
+      if (res.ok) {
+        setAttendanceSummary(data);
       } else {
-        setMessage("❌ Failed to mark attendance: " + (data.error || response.statusText));
+        console.error("Error fetching attendance summary:", data.message || data.error);
       }
     } catch (err) {
-      console.error("Error submitting attendance:", err);
-      setMessage("❌ Error occurred while submitting attendance.");
+      console.error("Error fetching attendance summary:", err.message || err);
     }
   };
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    setShowDropdown(false);
-
-    try {
-      const response = await fetch("http://localhost:5000/api/auth/logout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        console.log("Logout successful on server.");
-      } else {
-        console.error("Logout failed on server:", response.statusText);
-      }
-    } catch (error) {
-      console.error("Error during logout API call:", error);
-    } finally {
-      localStorage.removeItem("token");
-      localStorage.removeItem("userRole");
-      localStorage.removeItem("userId");
-      localStorage.removeItem("userType");
-      setIsLoggingOut(false);
-      navigate("/", { replace: true });
+//------------------------------------------- Attendance state handling function -----------------------------------------//
+const setStudentAttendance = (studentId, status) => {
+  setAttendanceList((prevList) => {
+    const existingEntry = prevList.find(entry => entry.studentId === studentId);
+    if (existingEntry) {
+      return prevList.map((entry) =>
+        entry.studentId === studentId ? { ...entry, status } : entry
+      );
+    } else {
+      return [...prevList, { studentId, status }];
     }
-  };
+  });
+};
 
-  const toggleDropdown = (e) => {
-    e.stopPropagation();
-    setShowDropdown((prev) => !prev);
-  };
+// Handle date input change
+const handleDateChange = (e) => {
+  setSelectedDate(e.target.value);  // Format should be 'YYYY-MM-DD'
+};
 
-  // --- Render based on loading/error states ---
+// Submit attendance to backend
+const handleSubmitAttendance = async () => {
+  if (!selectedSubjectId || !selectedDate || attendanceList.length === 0) {
+    setMessage("❌ Please select subject, date, and mark attendance.");
+    return;
+  }
+
+  try {
+    const response = await fetch("http://localhost:5000/api/teachers/mark-attendance", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`, // Assuming token is available in state
+      },
+      body: JSON.stringify({
+        subjectId: selectedSubjectId,
+        date: selectedDate,
+        attendanceList: attendanceList.map(({ studentId, status }) => ({
+          studentId,
+          status
+        }))
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      setMessage(`✅ ${data.message}`);
+    } else {
+      setMessage(`❌ Failed to mark attendance: ${data.error || "Unknown error"}`);
+    }
+  } catch (error) {
+    console.error("❌ Error submitting attendance:", error);
+    setMessage("❌ Network or server error while submitting attendance.");
+  }
+};
+
+  // ----------------------------------- Conditional Renders ----------------------------------- //
   if (loadingProfile) {
     return (
       <div className="loading-container-full">
@@ -233,82 +230,25 @@ const TeacherDashboard = () => {
     return (
       <div className="error-container-full">
         <h2>Failed to Load Dashboard</h2>
-        <p style={{ fontSize: '1.1rem', textAlign: 'center' }}>{message || "There was an error loading your profile. Please try logging in again."}</p>
-        <button onClick={() => navigate("/", { replace: true })} className="btn btn-light mt-3">
+        <p>{message || "Please try logging in again."}</p>
+        <button onClick={() => navigate("/")} className="btn btn-light mt-3">
           Go to Login
         </button>
       </div>
     );
   }
 
-  // --- Main Dashboard Render ---
+
+
+
+
+
+  // ------------------------------------------------- Main Dashboard Render -------------------------------------------------//
+
   return (
     <div className="dashboard-container">
-      <header className="dashboard-header">
-        <div className="header-content">
-          <h1 className="dashboard-title">
-            <span className="dashboard-icon">🧑‍🏫</span>
-            Teacher Dashboard
-          </h1>
-
-          <div className="profile-wrapper" ref={dropdownRef}>
-            <div className="avatar-container" onClick={toggleDropdown}>
-              <img
-                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(teacherProfile.name)}&background=007bff&color=fff&size=40`}
-                alt="Profile"
-                className="avatar-img"
-              />
-              <div className="profile-info">
-                <span className="profile-name">{teacherProfile.name}</span>
-                <span className="profile-role">Teacher</span>
-              </div>
-              <span className={`dropdown-arrow ${showDropdown ? "open" : ""}`}>
-                ▼
-              </span>
-            </div>
-
-            {showDropdown && (
-              <div className="dropdown-menu">
-                <div className="dropdown-header">
-                  <div style={{borderRadius: '50%', overflow: 'hidden'}}>
-                    <img
-                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(teacherProfile.name)}&background=007bff&color=fff&size=50`}
-                      alt="Profile"
-                      className="dropdown-avatar-img"
-                    />
-                  </div>
-                  <div className="dropdown-user-info">
-                    <span className="dropdown-name">{teacherProfile.name}</span>
-                    <span className="dropdown-email">{teacherProfile.user?.email || 'N/A'}</span>
-                  </div>
-                </div>
-
-                <div className="dropdown-divider"></div>
-
-                <div className="dropdown-items">
-                  <button
-                    onClick={handleLogout}
-                    className="dropdown-item logout-btn"
-                    disabled={isLoggingOut}
-                  >
-                    {isLoggingOut ? (
-                      <>
-                        <div className="spinner"></div>
-                        <span>Logging out...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="logout-icon">🚪</span>
-                        <span>Logout</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* Top Navbar with collapsible sidebar */}
+      <NavbarWithSidebar teacherProfile={teacherProfile} />
 
       <div className="dashboard-content-area">
         {/* Profile Section */}
@@ -326,7 +266,7 @@ const TeacherDashboard = () => {
             </div>
             <div className="profile-item">
               <label>Email</label>
-              <span>{teacherProfile.user?.email || 'N/A'}</span>
+              <span>{teacherProfile.user?.email || "N/A"}</span>
             </div>
           </div>
         </section>
@@ -377,7 +317,14 @@ const TeacherDashboard = () => {
           {students.length > 0 && selectedSubjectId && selectedDate && (
             <>
               <h5 className="mb-3">Attendance List for the day</h5>
-              <div className="table-responsive" style={{marginBottom: '1.5rem', borderRadius: '12px', overflow: 'hidden'}}>
+              <div
+                className="table-responsive"
+                style={{
+                  marginBottom: "1.5rem",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                }}
+              >
                 <table className="table table-striped table-hover attendance-table">
                   <thead className="table-dark">
                     <tr>
@@ -392,7 +339,8 @@ const TeacherDashboard = () => {
                       const attendanceEntry = attendanceList.find(
                         (a) => a.studentId === student._id
                       );
-                      const currentStatus = attendanceEntry?.status || "Present"; // Default if not found
+                      const currentStatus =
+                        attendanceEntry?.status || "Present"; // Default if not found
 
                       return (
                         <tr key={student._id}>
@@ -402,14 +350,22 @@ const TeacherDashboard = () => {
                           <td>
                             <div className="status-buttons-container">
                               <button
-                                className={`status-btn present-btn ${currentStatus === "Present" ? "active" : ""}`}
-                                onClick={() => setStudentAttendance(student._id, "Present")}
+                                className={`status-btn present-btn ${
+                                  currentStatus === "Present" ? "active" : ""
+                                }`}
+                                onClick={() =>
+                                  setStudentAttendance(student._id, "Present")
+                                }
                               >
                                 Present
                               </button>
                               <button
-                                className={`status-btn absent-btn ${currentStatus === "Absent" ? "active" : ""}`}
-                                onClick={() => setStudentAttendance(student._id, "Absent")}
+                                className={`status-btn absent-btn ${
+                                  currentStatus === "Absent" ? "active" : ""
+                                }`}
+                                onClick={() =>
+                                  setStudentAttendance(student._id, "Absent")
+                                }
                               >
                                 Absent
                               </button>
@@ -424,7 +380,11 @@ const TeacherDashboard = () => {
               <button
                 className="btn btn-primary submit-attendance-btn"
                 onClick={handleSubmitAttendance}
-                disabled={!selectedSubjectId || attendanceList.length === 0 || !selectedDate}
+                disabled={
+                  !selectedSubjectId ||
+                  attendanceList.length === 0 ||
+                  !selectedDate
+                }
               >
                 Submit Attendance
               </button>
@@ -432,17 +392,27 @@ const TeacherDashboard = () => {
           )}
 
           {selectedSubjectId && students.length === 0 && (
-            <p className="no-students-message">No students found for the selected subject. Ensure a class is assigned to this subject.</p>
+            <p className="no-students-message">
+              No students found for the selected subject. Ensure a class is
+              assigned to this subject.
+            </p>
           )}
 
           {message && (
-            <div className={`mt-3 alert ${message.startsWith('✅') ? 'alert-success' : 'alert-danger'}`}>
+            <div
+              className={`mt-3 alert ${
+                message.startsWith("✅") ? "alert-success" : "alert-danger"
+              }`}
+            >
               {message}
             </div>
           )}
         </section>
       </div>
     </div>
+
+  //--------------------------------------------------------------------------------------------------------------------------------//
+
   );
 };
 

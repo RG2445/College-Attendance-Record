@@ -8,18 +8,18 @@ const Teacher = require('../Models/Teacher');
 const Student = require('../Models/Student');
 const User = require('../Models/User');
 
+//-------------------------------------------------------------------------------------------------------------------//
+
 // Create a new teacher (Admin only)
 router.post('/create', jwtAuthMiddleware, async (req, res) => {
   try {
     const { email, password, name, subjects = [] } = req.body;
 
-    // Check if user with email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
 
-    // Create user account
     const newUser = new User({
       email,
       password,
@@ -27,7 +27,6 @@ router.post('/create', jwtAuthMiddleware, async (req, res) => {
     });
     await newUser.save();
 
-    // Create teacher profile
     const newTeacher = new Teacher({
       user: newUser._id,
       name,
@@ -35,7 +34,6 @@ router.post('/create', jwtAuthMiddleware, async (req, res) => {
     });
     await newTeacher.save();
 
-    // Update subjects to reference this teacher
     if (subjects.length > 0) {
       await Subject.updateMany(
         { _id: { $in: subjects } },
@@ -47,8 +45,8 @@ router.post('/create', jwtAuthMiddleware, async (req, res) => {
       message: 'Teacher created successfully', 
       teacher: newTeacher 
     });
-  } catch (err) {
-    console.error(err);
+  }
+  catch (err) {
     res.status(500).json({ error: 'Failed to create teacher' });
   }
 });
@@ -67,6 +65,8 @@ router.get('/', jwtAuthMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch teachers' });
   }
 });
+
+//----------------------------------------------------------------------------------------------------------------------------------------------//
 
 // Get current teacher's profile
 router.get('/profile/me', jwtAuthMiddleware, async (req, res) => {
@@ -128,7 +128,7 @@ router.get('/subject/:subjectId/students', jwtAuthMiddleware, async (req, res) =
     // Get all students (you might want to filter by class/branch based on subject)
     const students = await Student.find()
       .populate('user', 'email')
-      .select('name branch user');
+      .select('name enrollmentNumber user');
     
     res.json(students);
   } catch (err) {
@@ -137,46 +137,41 @@ router.get('/subject/:subjectId/students', jwtAuthMiddleware, async (req, res) =
   }
 });
 
-// Mark attendance
+// POST /api/teachers/mark-attendance
 router.post('/mark-attendance', jwtAuthMiddleware, async (req, res) => {
-  const { subjectId, date, attendanceList } = req.body;
-
   try {
-    const userId = req.user.id;
+    const { subjectId, date, attendanceList } = req.body;
 
-    // Ensure teacher has access to the subject
-    const teacher = await Teacher.findOne({ user: userId });
-    if (!teacher) {
-      return res.status(404).json({ error: 'Teacher not found' });
+    if (!subjectId || !date || !Array.isArray(attendanceList)) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const subject = await Subject.findOne({ _id: subjectId, teacher: teacher._id });
-    if (!subject) {
-      return res.status(403).json({ error: 'Access denied to this subject' });
+    const formattedDate = new Date(date);
+
+    // Check if attendance already exists for subject + date
+    const existing = await Attendance.findOne({ subject: subjectId, date: formattedDate });
+    if (existing) {
+      return res.status(400).json({ error: 'Attendance already marked for this subject on this date.' });
     }
 
-    const isoDate = new Date(date); 
+    // Build records array
+    const records = attendanceList.map(entry => ({
+      student: entry.studentId,
+      status: entry.status.charAt(0).toUpperCase() + entry.status.slice(1) // "present" => "Present"
+    }));
 
-    // Mark or update attendance for each student
-    const attendancePromises = attendanceList.map(async (record) => {
-      const { studentId, status } = record;
-
-      return await Attendance.findOneAndUpdate(
-        { student: studentId, subject: subjectId, date: isoDate },
-        { student: studentId, subject: subjectId, date: isoDate, status },
-        { upsert: true, new: true }
-      );
+    const newAttendance = new Attendance({
+      subject: subjectId,
+      date: formattedDate,
+      records
     });
 
-    await Promise.all(attendancePromises);
+    await newAttendance.save();
 
-    res.json({
-      message: '✅ Attendance marked/updated successfully',
-      count: attendanceList.length,
-    });
+    res.status(201).json({ message: 'Attendance marked successfully.' });
   } catch (err) {
-    console.error('❌ Failed to mark attendance:', err);
-    res.status(500).json({ error: 'Failed to mark attendance' });
+    console.error('Error in mark-attendance:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -274,12 +269,13 @@ router.get('/subject/:subjectId/summary', jwtAuthMiddleware, async (req, res) =>
     const { subjectId } = req.params;
     const userId = req.user.id;
 
-    // Verify teacher has access to this subject
+    // Step 1: Verify teacher
     const teacher = await Teacher.findOne({ user: userId });
     if (!teacher) {
       return res.status(404).json({ error: 'Teacher not found' });
     }
 
+    // Step 2: Check if teacher is assigned to this subject
     const subject = await Subject.findOne({ 
       _id: subjectId, 
       teacher: teacher._id 
@@ -289,24 +285,31 @@ router.get('/subject/:subjectId/summary', jwtAuthMiddleware, async (req, res) =>
       return res.status(403).json({ error: 'Access denied to this subject' });
     }
 
+    // Step 3: Aggregate attendance summary
     const summary = await Attendance.aggregate([
-      { $match: { subject: new require('mongoose').Types.ObjectId(subjectId) } },
+      {
+        $match: {
+          subject: new mongoose.Types.ObjectId(subjectId),
+        },
+      },
       {
         $group: {
           _id: '$student',
           totalClasses: { $sum: 1 },
           presentClasses: {
-            $sum: { $cond: [{ $eq: ['$status', 'Present'] }, 1, 0] }
-          }
-        }
+            $sum: {
+              $cond: [{ $eq: ['$status', 'Present'] }, 1, 0],
+            },
+          },
+        },
       },
       {
         $lookup: {
           from: 'students',
           localField: '_id',
           foreignField: '_id',
-          as: 'student'
-        }
+          as: 'student',
+        },
       },
       {
         $project: {
@@ -316,20 +319,27 @@ router.get('/subject/:subjectId/summary', jwtAuthMiddleware, async (req, res) =>
           attendancePercentage: {
             $multiply: [
               { $divide: ['$presentClasses', '$totalClasses'] },
-              100
-            ]
-          }
-        }
+              100,
+            ],
+          },
+        },
       },
-      { $sort: { 'student.name': 1 } }
+      {
+        $sort: { 'student.name': 1 },
+      },
     ]);
 
     res.json(summary);
+    
   } catch (err) {
-    console.error(err);
+    console.error('Error fetching attendance summary:', err);
     res.status(500).json({ error: 'Failed to fetch attendance summary' });
   }
 });
+
+
+
+//-----------------------------------------------------------------------------------------------------------------------------------------//
 
 // Update teacher profile
 router.put('/profile', jwtAuthMiddleware, async (req, res) => {
