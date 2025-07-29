@@ -84,14 +84,14 @@ const NavbarWithSidebar = ({ teacherProfile }) => {
       {/* Temporary Sidebar Menu */}
       {menuOpen && (
         <div className="sidebar-popup shadow">
-          <Link className="menu-item" to="/dashboard" onClick={() => setMenuOpen(false)}>
-            📊 Dashboard
+          <Link className="menu-item" to="/viewAttendanceByDate" onClick={() => setMenuOpen(false)}>
+            📊 Attendance By Date
           </Link>
-          <Link className="menu-item" to="/students" onClick={() => setMenuOpen(false)}>
-            👨‍🎓 Students
+          <Link className="menu-item" to="/viewAttendanceBySubject" onClick={() => setMenuOpen(false)}>
+            📚 Attendance By Subject
           </Link>
-          <Link className="menu-item" to="/subjects" onClick={() => setMenuOpen(false)}>
-            📚 Subjects
+          <Link className="menu-item" to="/attendanceSummary" onClick={() => setMenuOpen(false)}>
+            👨‍🎓 Attendance Summary
           </Link>
         </div>
       )}

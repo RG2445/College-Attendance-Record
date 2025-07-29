@@ -176,9 +176,9 @@ router.post('/mark-attendance', jwtAuthMiddleware, async (req, res) => {
 });
 
 // Get attendance records for a specific subject and date
-router.get('/attendance/:subjectId/:date', jwtAuthMiddleware, async (req, res) => {
+router.get('/attendance/:subjectCode/:date', jwtAuthMiddleware, async (req, res) => {
   try {
-    const { subjectId, date } = req.params;
+    const { subjectCode, date } = req.params;
     const userId = req.user.id;
 
     // Verify teacher has access to this subject
@@ -190,7 +190,7 @@ router.get('/attendance/:subjectId/:date', jwtAuthMiddleware, async (req, res) =
     const isoDate = new Date(date);
 
     const subject = await Subject.findOne({ 
-      _id: subjectId, 
+      code: subjectCode, 
       teacher: teacher._id 
     });
     
@@ -198,75 +198,93 @@ router.get('/attendance/:subjectId/:date', jwtAuthMiddleware, async (req, res) =
       return res.status(403).json({ error: 'Access denied to this subject' });
     }
 
-    const records = await Attendance.find({ 
-      subject: subjectId, 
-      isoDate 
-    }).populate('student', 'name branch');
-    
-    res.json(records);
+    const attendanceList = await Attendance.find({ 
+      subject: subject._id, 
+      date: isoDate 
+    }).populate('records.student', 'name branch');
+
+    if (!attendanceList || attendanceList.length === 0) {
+      return res.status(404).json({ error: 'No attendance records found for this subject on this date' });
+    }
+    console.log(attendanceList);
+    res.json(attendanceList);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch attendance records' });
   }
 });
 
-// Get all attendance records for a subject 
-router.get('/subject/:subjectId/attendance', jwtAuthMiddleware, async (req, res) => {
-  const { subjectId } = req.params;
-  const { page = 1, limit = 50, startDate, endDate } = req.query;
-  
+// Get all attendance records for a subject for a selected month (no pagination)
+router.get('/subject/:subjectCode/attendance', jwtAuthMiddleware, async (req, res) => {
+  const { subjectCode } = req.params;
+  const { month, year } = req.query;
+
   try {
     const userId = req.user.id;
 
-    // Verify teacher has access to this subject
+    // Validate month and year
+    if (!month || !year) {
+      return res.status(400).json({ error: "Month and year are required" });
+    }
+
+    const selectedMonth = parseInt(month) - 1; // JavaScript Date months are 0-indexed
+    const selectedYear = parseInt(year);
+
+    if (selectedMonth < 0 || selectedMonth > 11 || isNaN(selectedYear)) {
+      return res.status(400).json({ error: "Invalid month or year" });
+    }
+
+    const startDate = new Date(selectedYear, selectedMonth, 1); // Start of month
+    const endDate = new Date(selectedYear, selectedMonth + 1, 1); // Start of next month
+
+    // Find teacher
     const teacher = await Teacher.findOne({ user: userId });
     if (!teacher) {
       return res.status(404).json({ error: 'Teacher not found' });
     }
 
-    const subject = await Subject.findOne({ 
-      _id: subjectId, 
-      teacher: teacher._id 
-    });
-
+    // Check if the teacher teaches the subject
+    const subject = await Subject.findOne({ code: subjectCode, teacher: teacher._id });
     if (!subject) {
       return res.status(403).json({ error: 'Access denied to this subject' });
     }
 
-    let filter = { subject: subjectId };
-    if (startDate && endDate) {
-      filter.date = { $gte: startDate, $lte: endDate };
-    }
+    const subjectId = subject._id;
 
-    const skip = (page - 1) * limit;
-    const records = await Attendance.find(filter)
-      .populate('student', 'name branch')
-      .sort({ date: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    // Find all attendance entries for that month
+    const attendanceDocs = await Attendance.find({
+      subject: subjectId,
+      date: { $gte: startDate, $lt: endDate }
+    }).sort({ date: 1 }).populate('records.student', 'name branch');
 
-    const total = await Attendance.countDocuments(filter);
+    const formattedRecords = attendanceDocs.map(doc => {
+      const presentCount = doc.records.filter(r => r.status === 'Present').length;
+      return {
+        _id: doc._id,
+        date: doc.date,
+        presentCount,
+        totalMarked: doc.records.length
+      };
+    });
+
+    const totalPresent = formattedRecords.reduce((sum, rec) => sum + rec.presentCount, 0);
 
     res.json({
-      records,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalRecords: total,
-        hasNext: page * limit < total,
-        hasPrev: page > 1
-      }
+      totalPresent,
+      records: formattedRecords
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch attendance records' });
   }
 });
 
+
 // Get attendance summary for a subject
-router.get('/subject/:subjectId/summary', jwtAuthMiddleware, async (req, res) => {
+router.get('/subject/:subjectCode/summary', jwtAuthMiddleware, async (req, res) => {
   try {
-    const { subjectId } = req.params;
+    const { subjectCode } = req.params;
     const userId = req.user.id;
 
     // Step 1: Verify teacher
@@ -277,7 +295,7 @@ router.get('/subject/:subjectId/summary', jwtAuthMiddleware, async (req, res) =>
 
     // Step 2: Check if teacher is assigned to this subject
     const subject = await Subject.findOne({ 
-      _id: subjectId, 
+      code: subjectCode, 
       teacher: teacher._id 
     });
 
@@ -336,6 +354,18 @@ router.get('/subject/:subjectId/summary', jwtAuthMiddleware, async (req, res) =>
     res.status(500).json({ error: 'Failed to fetch attendance summary' });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

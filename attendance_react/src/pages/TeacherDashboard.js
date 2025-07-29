@@ -340,7 +340,7 @@ const handleSubmitAttendance = async () => {
                         (a) => a.studentId === student._id
                       );
                       const currentStatus =
-                        attendanceEntry?.status || "Present"; // Default if not found
+                        attendanceEntry?.status || "Present"; 
 
                       return (
                         <tr key={student._id}>
