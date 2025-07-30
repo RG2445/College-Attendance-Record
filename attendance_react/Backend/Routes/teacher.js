@@ -7,6 +7,7 @@ const Subject = require('../Models/Subject');
 const Teacher = require('../Models/Teacher');
 const Student = require('../Models/Student');
 const User = require('../Models/User');
+const mongoose = require('mongoose');
 
 //-------------------------------------------------------------------------------------------------------------------//
 
@@ -283,79 +284,71 @@ router.get('/subject/:subjectCode/attendance', jwtAuthMiddleware, async (req, re
 
 // Get attendance summary for a subject
 router.get('/subject/:subjectCode/summary', jwtAuthMiddleware, async (req, res) => {
+  const { subjectCode } = req.params;
+
   try {
-    const { subjectCode } = req.params;
     const userId = req.user.id;
 
-    // Step 1: Verify teacher
+    // Find teacher
     const teacher = await Teacher.findOne({ user: userId });
     if (!teacher) {
       return res.status(404).json({ error: 'Teacher not found' });
     }
 
-    // Step 2: Check if teacher is assigned to this subject
-    const subject = await Subject.findOne({ 
-      code: subjectCode, 
-      teacher: teacher._id 
-    });
-
+    // Check if the teacher teaches the subject
+    const subject = await Subject.findOne({ code: subjectCode, teacher: teacher._id });
     if (!subject) {
       return res.status(403).json({ error: 'Access denied to this subject' });
     }
+    
+    const subjectId = subject._id;
 
-    // Step 3: Aggregate attendance summary
-    const summary = await Attendance.aggregate([
-      {
-        $match: {
-          subject: new mongoose.Types.ObjectId(subjectId),
-        },
-      },
-      {
-        $group: {
-          _id: '$student',
-          totalClasses: { $sum: 1 },
-          presentClasses: {
-            $sum: {
-              $cond: [{ $eq: ['$status', 'Present'] }, 1, 0],
-            },
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: 'students',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'student',
-        },
-      },
-      {
-        $project: {
-          student: { $arrayElemAt: ['$student', 0] },
-          totalClasses: 1,
-          presentClasses: 1,
-          attendancePercentage: {
-            $multiply: [
-              { $divide: ['$presentClasses', '$totalClasses'] },
-              100,
-            ],
-          },
-        },
-      },
-      {
-        $sort: { 'student.name': 1 },
-      },
-    ]);
+    // Get all attendance records for the subject
+    const attendanceRecords = await Attendance.find({ subject: subjectId })
+      .sort({ date: 1 })
+      .populate('records.student', 'name enrollmentNumber');
+
+    if (!attendanceRecords || attendanceRecords.length === 0) {
+      return res.status(404).json({ error: 'No attendance records found for this subject' });
+    }
+
+    // Aggregate attendance per student
+    const studentStats = {};
+
+    attendanceRecords.forEach(record => {
+      record.records.forEach(r => {
+        const studentId = r.student?._id?.toString();
+        if (!studentId) return;
+        if (!studentStats[studentId]) {
+          studentStats[studentId] = {
+            name: r.student.name,
+            enrollmentNumber: r.student.enrollmentNumber,
+            present: 0,
+            total: 0
+          };
+        }
+        studentStats[studentId].total += 1;
+        if (r.status === 'Present') {
+          studentStats[studentId].present += 1;
+        }
+      });
+    });
+
+// Prepare summary array
+const summary = Object.values(studentStats).map(s => ({
+  name: s.name,
+  enrollmentNumber: s.enrollmentNumber,
+  percentage: s.total > 0 ? Math.round((s.present / s.total) * 100) : 0,
+  presentClasses: s.present,
+  totalClasses: s.total
+}));
 
     res.json(summary);
-    
   } catch (err) {
-    console.error('Error fetching attendance summary:', err);
+    console.error(err);
     res.status(500).json({ error: 'Failed to fetch attendance summary' });
   }
 });
-
-
 
 
 
