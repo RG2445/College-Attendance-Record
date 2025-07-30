@@ -138,6 +138,41 @@ router.get('/subject/:subjectId/students', jwtAuthMiddleware, async (req, res) =
   }
 });
 
+
+router.post('/attendance-by-date', require('./../jwt.js').jwtAuthMiddleware, async (req, res) => {
+  const { subjectId, date } = req.body;
+  if (!subjectId || !date) {
+    return res.status(400).json({ error: "Subject ID and date are required." });
+  }
+
+  try {
+    // Find attendance for the subject and date
+    const attendance = await Attendance.findOne({ subject: subjectId, date })
+      .populate({
+        path: 'records.student',
+        select: 'name enrollmentNumber'
+      });
+
+    if (!attendance) {
+      return res.status(200).json({ records: [] }); // No attendance found for this date
+    }
+
+    // Return attendance records with student info
+    return res.status(200).json({
+      records: attendance.records.map(r => ({
+        student: {
+          _id: r.student._id,
+          name: r.student.name,
+          enrollmentNumber: r.student.enrollmentNumber
+        },
+        status: r.status
+      }))
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error fetching attendance." });
+  }
+});
+
 // POST /api/teachers/mark-attendance
 router.post('/mark-attendance', jwtAuthMiddleware, async (req, res) => {
   try {
@@ -173,6 +208,40 @@ router.post('/mark-attendance', jwtAuthMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Error in mark-attendance:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Route: Update attendance for a subject on a specific date
+router.put('/update-attendance', jwtAuthMiddleware, async (req, res) => {
+  try {
+    const { subjectId, date, records } = req.body;
+
+    if (!subjectId || !date || !records || records.length === 0) {
+      return res.status(400).json({ error: 'Missing required fields.' });
+    }
+
+    const startOfDay = new Date(date);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    const attendance = await Attendance.findOne({
+      subject: subjectId,
+      date: { $gte: startOfDay, $lt: endOfDay },
+    });
+
+    if (!attendance) {
+      return res.status(404).json({ error: 'Attendance not found for this subject and date.' });
+    }
+
+    attendance.records = records;
+    await attendance.save();
+
+    res.json({ message: 'Attendance updated successfully.' });
+  } catch (error) {
+    console.error('Update Attendance Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -349,17 +418,6 @@ const summary = Object.values(studentStats).map(s => ({
     res.status(500).json({ error: 'Failed to fetch attendance summary' });
   }
 });
-
-
-
-
-
-
-
-
-
-
-
 
 
 //-----------------------------------------------------------------------------------------------------------------------------------------//

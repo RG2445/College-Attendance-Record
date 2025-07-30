@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import "./TeacherDashboard.css";
 import NavbarWithSidebar from '../components/NavbarWithSidebar';
 
-
 const TeacherDashboard = () => {
   const [subjects, setSubjects] = useState([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
@@ -15,7 +14,7 @@ const TeacherDashboard = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [errorLoadingProfile, setErrorLoadingProfile] = useState(false);
-  const [attendanceSummary, setAttendanceSummary] = useState([]);
+  const [attendanceExists, setAttendanceExists] = useState(false);
 
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
@@ -33,7 +32,6 @@ const TeacherDashboard = () => {
       setErrorLoadingProfile(false);
       setMessage("");
 
-//-------------------------------------------Teacher profile-------------------------------------------//
       try {
         const res = await fetch("http://localhost:5000/api/teachers/profile/me", {
           headers: { Authorization: `Bearer ${token}` },
@@ -53,8 +51,6 @@ const TeacherDashboard = () => {
         const data = await res.json();
         setTeacherProfile(data);
         await fetchSubjects();
-        await fetchAttendanceSummary();
-
       } 
       catch (err) {
         setMessage("❌ Failed to fetch teacher profile. Please try again.");
@@ -64,7 +60,7 @@ const TeacherDashboard = () => {
         setLoadingProfile(false);
       }
     };
-//-----------------------------------------------------------------------------------------------------//
+
     initializeDashboard();
 
     const handleClickOutside = (e) => {
@@ -78,8 +74,13 @@ const TeacherDashboard = () => {
     // eslint-disable-next-line
   }, [token, navigate]);
   
-
-// -------------------------------------------- Fetch Subjects -------------------------------------------- //
+  useEffect(() => {
+  if (message) {
+    const timer = setTimeout(() => setMessage(""), 3000); // 3 seconds
+    return () => clearTimeout(timer);
+  }
+}, [message]);
+  // -------------------------------------------- Fetch Subjects -------------------------------------------- //
   const fetchSubjects = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/teachers/subjects", {
@@ -99,13 +100,15 @@ const TeacherDashboard = () => {
     }
   };
 
-// ----------------------------------------- Subject Change ---------------------------------------- //
+  // ----------------------------------------- Subject Change ---------------------------------------- //
   const handleSubjectChange = async (e) => {
     const subjectId = e.target.value;
     setSelectedSubjectId(subjectId);
     setStudents([]);
     setAttendanceList([]);
     setMessage("");
+    setSelectedDate("");
+    setAttendanceExists(false);
 
     if (!subjectId) return;
 
@@ -120,13 +123,6 @@ const TeacherDashboard = () => {
       const data = await res.json();
       if (res.ok) {
         setStudents(data);
-        setAttendanceList(
-          data.map((student) => ({
-            studentId: student._id,
-            roll:student.enrollmentNumber,
-            status: "Present",
-          }))
-        );
       } 
       else {
         setMessage("❌ Failed to fetch students for this subject.");
@@ -137,84 +133,151 @@ const TeacherDashboard = () => {
     }
   };
 
-  // ----------------------------------- Attendance Summary ----------------------------------- //
-  const fetchAttendanceSummary = async (selectedSubjectId) => {
-    if (!selectedSubjectId) return;
-
+  // ----------------------------------- Fetch Attendance For Date ----------------------------------- //
+  const fetchAttendanceForDate = async (subjectId, date) => {
+    if (!subjectId || !date) {
+      setAttendanceExists(false);
+      setAttendanceList([]);
+      return;
+    }
     try {
-      const res = await fetch(
-        `http://localhost:5000/api/teachers/subject/${selectedSubjectId}/summary`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
+      const res = await fetch("http://localhost:5000/api/teachers/attendance-by-date", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ subjectId, date }),
+      });
       const data = await res.json();
-      if (res.ok) {
-        setAttendanceSummary(data);
+      if (res.ok && Array.isArray(data.records) && data.records.length > 0) {
+        setAttendanceExists(true);
+        setAttendanceList(
+          data.records.map((entry) => ({
+            studentId: entry.student._id,
+            roll: entry.student.enrollmentNumber,
+            status: entry.status,
+          }))
+        );
       } else {
-        console.error("Error fetching attendance summary:", data.message || data.error);
+        setAttendanceExists(false);
+        // Default all students to Present
+        setAttendanceList(
+          students.map((student) => ({
+            studentId: student._id,
+            roll: student.enrollmentNumber,
+            status: "Present",
+          }))
+        );
       }
-    } catch (err) {
-      console.error("Error fetching attendance summary:", err.message || err);
+    } catch {
+      setAttendanceExists(false);
+      setAttendanceList(
+        students.map((student) => ({
+          studentId: student._id,
+          roll: student.enrollmentNumber,
+          status: "Present",
+        }))
+      );
     }
   };
 
-//------------------------------------------- Attendance state handling function -----------------------------------------//
-const setStudentAttendance = (studentId, status) => {
-  setAttendanceList((prevList) => {
-    const existingEntry = prevList.find(entry => entry.studentId === studentId);
-    if (existingEntry) {
-      return prevList.map((entry) =>
+  // When subject or date changes, fetch attendance for that date
+  useEffect(() => {
+    if (selectedSubjectId && selectedDate && students.length > 0) {
+      fetchAttendanceForDate(selectedSubjectId, selectedDate);
+    }
+    // eslint-disable-next-line
+  }, [selectedSubjectId, selectedDate, students]);
+
+  // Attendance status change
+  const setStudentAttendance = (studentId, status) => {
+    setAttendanceList((prevList) =>
+      prevList.map((entry) =>
         entry.studentId === studentId ? { ...entry, status } : entry
-      );
-    } else {
-      return [...prevList, { studentId, status }];
+      )
+    );
+  };
+
+  // Handle date input change
+  const handleDateChange = (e) => {
+    setSelectedDate(e.target.value);
+    // fetchAttendanceForDate will be triggered by useEffect
+  };
+
+  // Submit attendance to backend
+  const handleSubmitAttendance = async () => {
+    if (!selectedSubjectId || !selectedDate || attendanceList.length === 0) {
+      setMessage("❌ Please select subject, date, and mark attendance.");
+      return;
     }
-  });
-};
 
-// Handle date input change
-const handleDateChange = (e) => {
-  setSelectedDate(e.target.value);  // Format should be 'YYYY-MM-DD'
-};
+    try {
+      const response = await fetch("http://localhost:5000/api/teachers/mark-attendance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          subjectId: selectedSubjectId,
+          date: selectedDate,
+          attendanceList: attendanceList.map(({ studentId, status }) => ({
+            studentId,
+            status
+          }))
+        }),
+      });
 
-// Submit attendance to backend
-const handleSubmitAttendance = async () => {
-  if (!selectedSubjectId || !selectedDate || attendanceList.length === 0) {
-    setMessage("❌ Please select subject, date, and mark attendance.");
-    return;
-  }
+      const data = await response.json();
 
-  try {
-    const response = await fetch("http://localhost:5000/api/teachers/mark-attendance", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`, // Assuming token is available in state
-      },
-      body: JSON.stringify({
-        subjectId: selectedSubjectId,
-        date: selectedDate,
-        attendanceList: attendanceList.map(({ studentId, status }) => ({
-          studentId,
-          status
-        }))
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      setMessage(`✅ ${data.message}`);
-    } else {
-      setMessage(`❌ Failed to mark attendance: ${data.error || "Unknown error"}`);
+      if (response.ok) {
+        setMessage(`✅ ${data.message || "Attendance marked successfully."}`);
+        setAttendanceExists(true);
+        // After submit, attendanceList already has correct data
+      } else {
+        setMessage(`❌ Failed to mark attendance: ${data.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      setMessage("❌ Network or server error while submitting attendance.");
     }
-  } catch (error) {
-    console.error("❌ Error submitting attendance:", error);
-    setMessage("❌ Network or server error while submitting attendance.");
-  }
-};
+  };
+
+  // Update attendance to backend
+  const handleUpdateAttendance = async () => {
+    if (!selectedSubjectId || !selectedDate || attendanceList.length === 0) {
+      setMessage("❌ Please select subject, date, and mark attendance.");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/api/teachers/update-attendance", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          subjectId: selectedSubjectId,
+          date: selectedDate,
+          records: attendanceList.map(({ studentId, status }) => ({
+            student: studentId,
+            status
+          }))
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage(`✅ ${data.message || "Attendance updated successfully."}`);
+      } else {
+        setMessage(`❌ Failed to update attendance: ${data.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      setMessage("❌ Network or server error while updating attendance.");
+    }
+  };
 
   // ----------------------------------- Conditional Renders ----------------------------------- //
   if (loadingProfile) {
@@ -238,15 +301,11 @@ const handleSubmitAttendance = async () => {
     );
   }
 
-
-
-
-
-
   // ------------------------------------------------- Main Dashboard Render -------------------------------------------------//
-
   return (
     <div className="dashboard-container">
+
+      
       {/* Top Navbar with collapsible sidebar */}
       <NavbarWithSidebar teacherProfile={teacherProfile} />
 
@@ -377,17 +436,31 @@ const handleSubmitAttendance = async () => {
                   </tbody>
                 </table>
               </div>
-              <button
-                className="btn btn-primary submit-attendance-btn"
-                onClick={handleSubmitAttendance}
-                disabled={
-                  !selectedSubjectId ||
-                  attendanceList.length === 0 ||
-                  !selectedDate
-                }
-              >
-                Submit Attendance
-              </button>
+              {!attendanceExists ? (
+                <button
+                  className="btn btn-primary submit-attendance-btn"
+                  onClick={handleSubmitAttendance}
+                  disabled={
+                    !selectedSubjectId ||
+                    attendanceList.length === 0 ||
+                    !selectedDate
+                  }
+                >
+                  Submit Attendance
+                </button>
+              ) : (
+                <button
+                  className="btn btn-warning update-attendance-btn"
+                  onClick={handleUpdateAttendance}
+                  disabled={
+                    !selectedSubjectId ||
+                    attendanceList.length === 0 ||
+                    !selectedDate
+                  }
+                >
+                  Update Attendance
+                </button>
+              )}
             </>
           )}
 
@@ -398,21 +471,24 @@ const handleSubmitAttendance = async () => {
             </p>
           )}
 
-          {message && (
-            <div
-              className={`mt-3 alert ${
-                message.startsWith("✅") ? "alert-success" : "alert-danger"
-              }`}
-            >
-              {message}
-            </div>
-          )}
+{message && (
+  <div
+    className={`alert ${message.startsWith("✅") ? "alert-success" : "alert-danger"} alert-dismissible fade show mt-3`}
+    role="alert"
+  >
+    {message}
+    <button
+      type="button"
+      className="btn-close"
+      data-bs-dismiss="alert"
+      aria-label="Close"
+      onClick={() => setMessage("")}
+    ></button>
+  </div>
+)}
         </section>
       </div>
     </div>
-
-  //--------------------------------------------------------------------------------------------------------------------------------//
-
   );
 };
 
