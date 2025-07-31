@@ -9,6 +9,7 @@ const AdminDashboard = () => {
   const [subjects, setSubjects] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [message, setMessage] = useState("");
+  const [editUser, setEditUser] = useState(null);
   const [createRole, setCreateRole] = useState("student");
   const [tab, setTab] = useState("users");
   const [editSubject, setEditSubject] = useState(null);
@@ -165,48 +166,69 @@ const AdminDashboard = () => {
 
       {/* Users Tab */}
       {tab === "users" && (
-        <section>
-          <h5>Search Users</h5>
-          <input
-            type="text"
-            className="form-control mb-2"
-            placeholder="Search by name"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
+  <section>
+    <h5>Search Users</h5>
+    <input
+      type="text"
+      className="form-control mb-2"
+      placeholder="Search by name"
+      value={searchTerm}
+      onChange={e => setSearchTerm(e.target.value)}
+    />
 
-          <div className="accordion" id="usersAccordion">
-            <div className="accordion-item">
-              <h2 className="accordion-header" id="usersHeading">
-                <button className="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#usersCollapse" aria-expanded="false" aria-controls="usersCollapse">
-                  View All Users
-                </button>
-              </h2>
-              <div id="usersCollapse" className="accordion-collapse collapse" aria-labelledby="usersHeading" data-bs-parent="#usersAccordion">
-                <div className="accordion-body">
-                  <table className="table table-bordered">
-                    <thead>
-                      <tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr>
-                    </thead>
-                    <tbody>
-                      {users
-                        .filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase()))
-                        .map(u => (
-                          <tr key={u._id}>
-                            <td>{u.name || "-"}</td>
-                            <td>{u.email}</td>
-                            <td>{u.role}</td>
-                            <td>
-                              <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(u._id)}>Delete</button>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+    <div className="accordion" id="usersAccordion">
+      <div className="accordion-item">
+        <h2 className="accordion-header" id="usersHeading">
+          <button
+            className="accordion-button collapsed"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#usersCollapse"
+            aria-expanded="false"
+            aria-controls="usersCollapse"
+          >
+            View All Users
+          </button>
+        </h2>
+        <div
+          id="usersCollapse"
+          className="accordion-collapse collapse"
+          aria-labelledby="usersHeading"
+          data-bs-parent="#usersAccordion"
+        >
+          <div className="accordion-body">
+            <table className="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users
+                  .filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .map(u => (
+                    <tr key={u._id}>
+                      <td>{u.name || "-"}</td>
+                      <td>{u.email}</td>
+                      <td>{u.role}</td>
+                      <td>
+                        <button className="btn btn-warning btn-sm me-2" onClick={() => setEditUser(u)}>Edit</button>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(u._id)}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            {users.filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+              <div className="text-muted">No users found.</div>
+            )}
           </div>
+        </div>
+      </div>
+    </div>
 
           <h5 className="mt-4">Create User</h5>
           <form onSubmit={async (e) => {
@@ -281,8 +303,59 @@ const AdminDashboard = () => {
             )}
             <button type="submit" className="btn btn-primary">Create User</button>
           </form>
-        </section>
-      )}
+
+    {/* Edit User Modal */}
+    {editUser && (
+      <div className="modal show" style={{ display: "block", background: "rgba(0,0,0,0.2)" }}>
+        <div className="modal-dialog">
+          <div className="modal-content">
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const name = e.target.name.value;
+              const email = e.target.email.value;
+              const branch = e.target.branch?.value;
+              let payload = { name, email };
+              if (editUser.role === "student") payload.branch = branch;
+              try {
+                await axios.put(`/api/admin/users/${editUser._id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+                setMessage("User updated successfully");
+                setEditUser(null);
+                fetchAll();
+              } catch (err) {
+                setMessage(err.response?.data?.error || "Failed to update user");
+              }
+            }}>
+              <div className="modal-header">
+                <h5 className="modal-title">Edit User</h5>
+                <button type="button" className="btn-close" onClick={() => setEditUser(null)}></button>
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <label className="form-label">Name</label>
+                  <input type="text" className="form-control" name="name" defaultValue={editUser.name} required />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Email</label>
+                  <input type="email" className="form-control" name="email" defaultValue={editUser.email} required />
+                </div>
+                {editUser.role === "student" && (
+                  <div className="mb-3">
+                    <label className="form-label">Branch</label>
+                    <input type="text" className="form-control" name="branch" defaultValue={editUser.branch} required />
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="submit" className="btn btn-primary">Save Changes</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditUser(null)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )}
+  </section>
+)}
 
       {/* Classes Tab */}
       {tab === "classes" && (

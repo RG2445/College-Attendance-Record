@@ -126,6 +126,37 @@ router.post('/users', jwtAuthMiddleware, isAdmin, async (req, res) => {
   }
 });
 
+router.put('/users/:id', jwtAuthMiddleware, isAdmin, async (req, res) => {
+  const userId = req.params.id;
+  const { name, email, branch } = req.body;
+  try {
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    user.email = email;
+    await user.save();
+
+    if (user.role === 'student') {
+      const student = await Student.findOne({ user: userId });
+      if (student) {
+        student.name = name;
+        student.branch = branch;
+        await student.save();
+      }
+    } else if (user.role === 'teacher') {
+      const teacher = await Teacher.findOne({ user: userId });
+      if (teacher) {
+        teacher.name = name;
+        await teacher.save();
+      }
+    }
+
+    res.json({ message: 'User updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
 
 // Delete user
 router.delete('/users/:id', jwtAuthMiddleware, isAdmin, async (req, res) => {
