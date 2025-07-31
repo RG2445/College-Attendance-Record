@@ -58,7 +58,7 @@ router.get('/users', jwtAuthMiddleware, isAdmin, async (req, res) => {
 
 // Create a new user (generic)
 router.post('/users', jwtAuthMiddleware, isAdmin, async (req, res) => {
-  const { email, password, role, name, branch } = req.body;
+  const { email, password, role, name, branch, enrollmentNumber, className } = req.body;
 
   try {
     const existingUser = await User.findOne({ email });
@@ -71,12 +71,29 @@ router.post('/users', jwtAuthMiddleware, isAdmin, async (req, res) => {
     await newUser.save();
 
     if (role === 'student') {
+      // Find or create class by name
+      let classObj = null;
+      if (className) {
+        classObj = await Class.findOne({ name: className });
+        if (!classObj) {
+          classObj = new Class({ name: className, branch, students: [] });
+          await classObj.save();
+        }
+      }
       const student = new Student({
         user: newUser._id,
         name: name || 'Unnamed Student',
         branch: branch || 'CSE',
+        enrollmentNumber,
+        classId: classObj ? classObj._id : undefined,
       });
       await student.save();
+
+      // Add student to class
+      if (classObj) {
+        classObj.students.push(student._id);
+        await classObj.save();
+      }
     } else if (role === 'teacher') {
       const teacher = new Teacher({
         user: newUser._id,
