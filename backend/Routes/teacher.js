@@ -107,34 +107,17 @@ router.get("/subjects", jwtAuthMiddleware, async (req, res) => {
 
 // Get students for a specific subject (for attendance marking)
 router.get('/subject/:subjectId/students', jwtAuthMiddleware, async (req, res) => {
+  const { subjectId } = req.params;
   try {
-    const { subjectId } = req.params;
-    const userId = req.user.id;
+    // Find all classes that include this subject
+    const classes = await Class.find({ subjects: subjectId });
+    const classIds = classes.map(c => c._id);
 
-    // Verify teacher has access to this subject
-    const teacher = await Teacher.findOne({ user: userId });
-    if (!teacher) {
-      return res.status(404).json({ error: 'Teacher not found' });
-    }
-
-    const subject = await Subject.findOne({ 
-      _id: subjectId, 
-      teacher: teacher._id 
-    });
-    
-    if (!subject) {
-      return res.status(403).json({ error: 'Access denied to this subject' });
-    }
-
-    // Get all students (you might want to filter by class/branch based on subject)
-    const students = await Student.find()
-      .populate('user', 'email')
-      .select('name enrollmentNumber user');
-    
+    // Find all students in those classes
+    const students = await Student.find({ classId: { $in: classIds } }).populate('user', 'email');
     res.json(students);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch students' });
+    res.status(500).json({ error: 'Failed to fetch students for subject' });
   }
 });
 

@@ -215,6 +215,7 @@ router.get('/classes', jwtAuthMiddleware, isAdmin, async (req, res) => {
   try {
     const classes = await Class.find()
       .populate('students', 'name branch')
+      .populate('subjects', 'name code') // <-- Add this line
       .select('-__v');
     res.json(classes);
   } catch (err) {
@@ -225,12 +226,12 @@ router.get('/classes', jwtAuthMiddleware, isAdmin, async (req, res) => {
 
 // Create a new class
 router.post('/classes', jwtAuthMiddleware, isAdmin, async (req, res) => {
-  const { name,branch, students = [] } = req.body;
-  
+  const { name, branch, students = [], subjects = [] } = req.body; // <-- add subjects
+
   try {
-    const newClass = new Class({ name, branch, students });
+    const newClass = new Class({ name, branch, students, subjects }); // <-- include subjects
     await newClass.save();
-    
+
     // Update students' classId
     if (students.length > 0) {
       await Student.updateMany(
@@ -238,10 +239,10 @@ router.post('/classes', jwtAuthMiddleware, isAdmin, async (req, res) => {
         { classId: newClass._id }
       );
     }
-    
-    res.status(201).json({ 
-      message: 'Class created successfully', 
-      class: newClass 
+
+    res.status(201).json({
+      message: 'Class created successfully',
+      class: newClass
     });
   } catch (err) {
     console.error(err);
@@ -252,33 +253,30 @@ router.post('/classes', jwtAuthMiddleware, isAdmin, async (req, res) => {
 // Update class
 router.put('/classes/:id', jwtAuthMiddleware, isAdmin, async (req, res) => {
   try {
-    const { name, branch, students } = req.body;
-    
+    const { name, branch, students, subjects } = req.body; // <-- add subjects
+
     const updatedClass = await Class.findByIdAndUpdate(
       req.params.id,
-      { name, branch, students },
+      { name, branch, students, subjects }, // <-- include subjects
       { new: true, runValidators: true }
-    ).populate('students', 'name branch');
-    
+    ).populate('students', 'name branch').populate('subjects', 'name code');
+
     if (!updatedClass) {
       return res.status(404).json({ error: 'Class not found' });
     }
-    
-    // Update students' classId
+
+    // Update students' classId (existing logic)
     if (students) {
-      // Remove classId from students not in the list
       await Student.updateMany(
         { classId: req.params.id, _id: { $nin: students } },
         { $unset: { classId: 1 } }
       );
-      
-      // Add classId to students in the list
       await Student.updateMany(
         { _id: { $in: students } },
         { classId: req.params.id }
       );
     }
-    
+
     res.json({ message: 'Class updated successfully', class: updatedClass });
   } catch (err) {
     console.error(err);
@@ -400,24 +398,30 @@ router.delete('/subjects/:id', jwtAuthMiddleware, isAdmin, async (req, res) => {
   try {
     const subjectId = req.params.id;
     const subject = await Subject.findById(subjectId);
-    
+
     if (!subject) {
       return res.status(404).json({ error: 'Subject not found' });
     }
-    
+
     // Remove from teacher's subjects array
     if (subject.teacher) {
       await Teacher.findByIdAndUpdate(subject.teacher, {
         $pull: { subjects: subjectId }
       });
     }
-    
+
+    // Remove subject from all classes
+    await Class.updateMany(
+      { subjects: subjectId },
+      { $pull: { subjects: subjectId } }
+    );
+
     // Delete all attendance records for this subject
     await Attendance.deleteMany({ subject: subjectId });
-    
+
     // Delete the subject
     await Subject.findByIdAndDelete(subjectId);
-    
+
     res.json({ message: 'Subject deleted successfully' });
   } catch (err) {
     console.error(err);

@@ -54,7 +54,8 @@ const StudentDashboard = () => {
   const fetchProfile = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/students/profile", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}` },
       });
       
       if (res.status === 401) {
@@ -67,6 +68,7 @@ const StudentDashboard = () => {
       
       const data = await res.json();
       setProfile(data);
+      console.log("Profile data:", data);
       fetchAttendanceStats(data._id);
     } catch (err) {
       setError("Failed to fetch student profile.");
@@ -78,7 +80,9 @@ const StudentDashboard = () => {
     try {
       const res = await fetch(
         `http://localhost:5000/api/students/${studentId}/attendance/stats`,
+
         {
+          
           headers: { Authorization: `Bearer ${token}` },
         }
       );

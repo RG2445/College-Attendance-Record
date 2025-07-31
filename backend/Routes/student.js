@@ -87,47 +87,58 @@ router.get('/profile', jwtAuthMiddleware, async (req, res) => {
   }
 });
 
+router.get('/profile/subjects', jwtAuthMiddleware, async (req, res) => {
+  try {
+    const student = await Student.findOne({ user: req.user.id }).populate('classId');
+    if (!student || !student.classId) {
+      return res.status(404).json({ error: 'Student or class not found' });
+    }
+
+    // Populate subjects from class
+    const classWithSubjects = await Class.findById(student.classId._id).populate('subjects');
+    res.json(classWithSubjects.subjects || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch subjects for student' });
+  }
+});
+
 // Get student's overall attendance statistics
 router.get('/:studentId/attendance/stats', jwtAuthMiddleware, async (req, res) => {
   try {
     const { studentId } = req.params;
-    console.log('Looking up attendance stats for:', studentId);
-
     if (!mongoose.Types.ObjectId.isValid(studentId)) {
       return res.status(400).json({ error: 'Invalid student ID' });
     }
 
     const attendanceStats = await Attendance.aggregate([
-      {
-        $match: {
-          student: new mongoose.Types.ObjectId(studentId)
-        }
-      },
+      { $unwind: "$records" },
+      { $match: { "records.student": new mongoose.Types.ObjectId(studentId) } },
       {
         $group: {
-          _id: '$subject',
+          _id: "$subject",
           totalClasses: { $sum: 1 },
           presentClasses: {
-            $sum: { $cond: [{ $eq: ['$status', 'Present'] }, 1, 0] }
+            $sum: { $cond: [{ $eq: ["$records.status", "Present"] }, 1, 0] }
           }
         }
       },
       {
         $lookup: {
-          from: 'subjects',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'subject'
+          from: "subjects",
+          localField: "_id",
+          foreignField: "_id",
+          as: "subject"
         }
       },
       {
         $project: {
-          subject: { $arrayElemAt: ['$subject', 0] },
+          subject: { $arrayElemAt: ["$subject", 0] },
           totalClasses: 1,
           presentClasses: 1,
           attendancePercentage: {
             $multiply: [
-              { $divide: ['$presentClasses', '$totalClasses'] },
+              { $divide: ["$presentClasses", "$totalClasses"] },
               100
             ]
           }

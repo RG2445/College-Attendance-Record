@@ -13,10 +13,12 @@ const AdminDashboard = () => {
   const [createRole, setCreateRole] = useState("student");
   const [tab, setTab] = useState("users");
   const [editSubject, setEditSubject] = useState(null);
+  const [selectedSubjects, setSelectedSubjects] = useState([]); // For class creation
+  const [editClass, setEditClass] = useState(null);
+  const [editClassSubjects, setEditClassSubjects] = useState([]);
 
   const token = localStorage.getItem("token");
 
-  // Fetch all data on mount
   useEffect(() => {
     fetchAll();
   }, []);
@@ -38,7 +40,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // User CRUD
+  //-------------------------------------- User CRUD -------------------------------------------------//
   const handleCreateUser = async (payload) => {
     try {
       await axios.post("/api/admin/users", payload, { headers: { Authorization: `Bearer ${token}` } });
@@ -59,11 +61,12 @@ const AdminDashboard = () => {
     }
   };
 
-  // Class CRUD
-  const handleCreateClass = async (name, branch) => {
+ //-------------------------------------- Class CRUD -------------------------------------------------//
+  const handleCreateClass = async (name, branch, subjectsArr) => {
     try {
-      await axios.post("/api/admin/classes", { name, branch }, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post("/api/admin/classes", { name, branch, subjects: subjectsArr }, { headers: { Authorization: `Bearer ${token}` } });
       setMessage("Class created successfully");
+      setSelectedSubjects([]);
       fetchAll();
     } catch (err) {
       setMessage(err.response?.data?.error || "Failed to create class");
@@ -80,7 +83,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // Subject CRUD
+ //-------------------------------------- Subject CRUD -------------------------------------------------//
   const handleCreateSubject = async (name, code, teacherId) => {
     try {
       await axios.post("/api/admin/subjects", { name, code, teacher: teacherId }, { headers: { Authorization: `Bearer ${token}` } });
@@ -137,7 +140,8 @@ const AdminDashboard = () => {
     }
   };
 
-  // Auto-close alert
+  //---------------------------------------------------------------------------------------------------//
+
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => setMessage(""), 3000);
@@ -145,6 +149,7 @@ const AdminDashboard = () => {
     }
   }, [message]);
 
+  //------------------------------------------- Main Dashboard ------------------------------------------------------//
   return (
     <div className="container mt-4">
       <h2>Admin Dashboard</h2>
@@ -166,69 +171,52 @@ const AdminDashboard = () => {
 
       {/* Users Tab */}
       {tab === "users" && (
-  <section>
-    <h5>Search Users</h5>
-    <input
-      type="text"
-      className="form-control mb-2"
-      placeholder="Search by name"
-      value={searchTerm}
-      onChange={e => setSearchTerm(e.target.value)}
-    />
+        <section>
+          <h5>Search Users</h5>
+          <input
+            type="text"
+            className="form-control mb-2"
+            placeholder="Search by name"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
 
-    <div className="accordion" id="usersAccordion">
-      <div className="accordion-item">
-        <h2 className="accordion-header" id="usersHeading">
-          <button
-            className="accordion-button collapsed"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#usersCollapse"
-            aria-expanded="false"
-            aria-controls="usersCollapse"
-          >
-            View All Users
-          </button>
-        </h2>
-        <div
-          id="usersCollapse"
-          className="accordion-collapse collapse"
-          aria-labelledby="usersHeading"
-          data-bs-parent="#usersAccordion"
-        >
-          <div className="accordion-body">
-            <table className="table table-bordered">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users
-                  .filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map(u => (
-                    <tr key={u._id}>
-                      <td>{u.name || "-"}</td>
-                      <td>{u.email}</td>
-                      <td>{u.role}</td>
-                      <td>
-                        <button className="btn btn-warning btn-sm me-2" onClick={() => setEditUser(u)}>Edit</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(u._id)}>Delete</button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-            {users.filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
-              <div className="text-muted">No users found.</div>
-            )}
+          <div className="accordion" id="usersAccordion">
+            <div className="accordion-item">
+              <h2 className="accordion-header" id="usersHeading">
+                <button className="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#usersCollapse" aria-expanded="false" aria-controls="usersCollapse">
+                  View All Users
+                </button>
+              </h2>
+              <div id="usersCollapse" className="accordion-collapse collapse" aria-labelledby="usersHeading" data-bs-parent="#usersAccordion">
+                <div className="accordion-body">
+                  <table className="table table-bordered">
+                    <thead>
+                      <tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                      {users
+                        .filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+                        .map(u => (
+                          <tr key={u._id}>
+                            <td>{u.name || "-"}</td>
+                            <td>{u.email}</td>
+                            <td>{u.role}</td>
+                            <td>
+                              <button className="btn btn-warning btn-sm me-2" onClick={() => setEditUser(u)}>Edit</button>
+                              <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(u._id)}>Delete</button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                  {users.filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                    <div className="text-muted">No users found.</div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
 
           <h5 className="mt-4">Create User</h5>
           <form onSubmit={async (e) => {
@@ -304,58 +292,58 @@ const AdminDashboard = () => {
             <button type="submit" className="btn btn-primary">Create User</button>
           </form>
 
-    {/* Edit User Modal */}
-    {editUser && (
-      <div className="modal show" style={{ display: "block", background: "rgba(0,0,0,0.2)" }}>
-        <div className="modal-dialog">
-          <div className="modal-content">
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              const name = e.target.name.value;
-              const email = e.target.email.value;
-              const branch = e.target.branch?.value;
-              let payload = { name, email };
-              if (editUser.role === "student") payload.branch = branch;
-              try {
-                await axios.put(`/api/admin/users/${editUser._id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
-                setMessage("User updated successfully");
-                setEditUser(null);
-                fetchAll();
-              } catch (err) {
-                setMessage(err.response?.data?.error || "Failed to update user");
-              }
-            }}>
-              <div className="modal-header">
-                <h5 className="modal-title">Edit User</h5>
-                <button type="button" className="btn-close" onClick={() => setEditUser(null)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label">Name</label>
-                  <input type="text" className="form-control" name="name" defaultValue={editUser.name} required />
+          {/* Edit User Modal */}
+          {editUser && (
+            <div className="modal show" style={{ display: "block", background: "rgba(0,0,0,0.2)" }}>
+              <div className="modal-dialog">
+                <div className="modal-content">
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    const name = e.target.name.value;
+                    const email = e.target.email.value;
+                    const branch = e.target.branch?.value;
+                    let payload = { name, email };
+                    if (editUser.role === "student") payload.branch = branch;
+                    try {
+                      await axios.put(`/api/admin/users/${editUser._id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+                      setMessage("User updated successfully");
+                      setEditUser(null);
+                      fetchAll();
+                    } catch (err) {
+                      setMessage(err.response?.data?.error || "Failed to update user");
+                    }
+                  }}>
+                    <div className="modal-header">
+                      <h5 className="modal-title">Edit User</h5>
+                      <button type="button" className="btn-close" onClick={() => setEditUser(null)}></button>
+                    </div>
+                    <div className="modal-body">
+                      <div className="mb-3">
+                        <label className="form-label">Name</label>
+                        <input type="text" className="form-control" name="name" defaultValue={editUser.name} required />
+                      </div>
+                      <div className="mb-3">
+                        <label className="form-label">Email</label>
+                        <input type="email" className="form-control" name="email" defaultValue={editUser.email} required />
+                      </div>
+                      {editUser.role === "student" && (
+                        <div className="mb-3">
+                          <label className="form-label">Branch</label>
+                          <input type="text" className="form-control" name="branch" defaultValue={editUser.branch} required />
+                        </div>
+                      )}
+                    </div>
+                    <div className="modal-footer">
+                      <button type="submit" className="btn btn-primary">Save Changes</button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setEditUser(null)}>Cancel</button>
+                    </div>
+                  </form>
                 </div>
-                <div className="mb-3">
-                  <label className="form-label">Email</label>
-                  <input type="email" className="form-control" name="email" defaultValue={editUser.email} required />
-                </div>
-                {editUser.role === "student" && (
-                  <div className="mb-3">
-                    <label className="form-label">Branch</label>
-                    <input type="text" className="form-control" name="branch" defaultValue={editUser.branch} required />
-                  </div>
-                )}
               </div>
-              <div className="modal-footer">
-                <button type="submit" className="btn btn-primary">Save Changes</button>
-                <button type="button" className="btn btn-secondary" onClick={() => setEditUser(null)}>Cancel</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    )}
-  </section>
-)}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Classes Tab */}
       {tab === "classes" && (
@@ -363,7 +351,13 @@ const AdminDashboard = () => {
           <h4>All Classes</h4>
           <table className="table table-bordered">
             <thead>
-              <tr><th>Name</th><th>Branch</th><th>Students</th><th>Action</th></tr>
+              <tr>
+                <th>Name</th>
+                <th>Branch</th>
+                <th>Students</th>
+                <th>Subjects</th>
+                <th>Action</th>
+              </tr>
             </thead>
             <tbody>
               {classes.map(c => (
@@ -372,6 +366,15 @@ const AdminDashboard = () => {
                   <td>{c.branch}</td>
                   <td>{c.students?.length || 0}</td>
                   <td>
+                    {(c.subjects && c.subjects.length > 0)
+                      ? c.subjects.map(s => s.code || s).join(', ')
+                      : <span className="text-muted">No subjects</span>}
+                  </td>
+                  <td>
+                    <button className="btn btn-warning btn-sm me-2" onClick={() => {
+                      setEditClass(c);
+                      setEditClassSubjects(c.subjects.map(s => s._id));
+                    }}>Edit</button>
                     <button className="btn btn-danger btn-sm" onClick={() => handleDeleteClass(c._id)}>Delete</button>
                   </td>
                 </tr>
@@ -383,8 +386,9 @@ const AdminDashboard = () => {
             e.preventDefault();
             const name = e.target.name.value;
             const branch = e.target.branch.value;
-            handleCreateClass(name, branch);
+            handleCreateClass(name, branch, selectedSubjects);
             e.target.reset();
+            setSelectedSubjects([]);
           }}>
             <div className="mb-3">
               <label className="form-label">Class Name</label>
@@ -394,8 +398,90 @@ const AdminDashboard = () => {
               <label className="form-label">Branch</label>
               <input type="text" className="form-control" name="branch" required />
             </div>
+            <div className="mb-3">
+              <label className="form-label">Assign Subjects</label>
+              <select
+                multiple
+                className="form-select"
+                value={selectedSubjects}
+                onChange={e => {
+                  const options = Array.from(e.target.selectedOptions).map(opt => opt.value);
+                  setSelectedSubjects(options);
+                }}
+              >
+                {subjects.map(s => (
+                  <option key={s._id} value={s._id}>
+                    {s.name} ({s.code})
+                  </option>
+                ))}
+              </select>
+              <small className="text-muted">Hold Ctrl (Windows) or Cmd (Mac) to select multiple subjects.</small>
+            </div>
             <button type="submit" className="btn btn-primary">Create Class</button>
           </form>
+          {editClass && (
+            <div className="modal show" style={{ display: "block", background: "rgba(0,0,0,0.2)" }}>
+              <div className="modal-dialog">
+                <div className="modal-content">
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    const name = e.target.name.value;
+                    const branch = e.target.branch.value;
+                    try {
+                      await axios.put(`/api/admin/classes/${editClass._id}`, {
+                        name,
+                        branch,
+                        subjects: editClassSubjects
+                      }, { headers: { Authorization: `Bearer ${token}` } });
+                      setMessage("Class updated successfully");
+                      setEditClass(null);
+                      fetchAll();
+                    } catch (err) {
+                      setMessage(err.response?.data?.error || "Failed to update class");
+                    }
+                  }}>
+                    <div className="modal-header">
+                      <h5 className="modal-title">Edit Class</h5>
+                      <button type="button" className="btn-close" onClick={() => setEditClass(null)}></button>
+                    </div>
+                    <div className="modal-body">
+                      <div className="mb-3">
+                        <label className="form-label">Class Name</label>
+                        <input type="text" className="form-control" name="name" defaultValue={editClass.name} required />
+                      </div>
+                      <div className="mb-3">
+                        <label className="form-label">Branch</label>
+                        <input type="text" className="form-control" name="branch" defaultValue={editClass.branch} required />
+                      </div>
+                      <div className="mb-3">
+                        <label className="form-label">Assign Subjects</label>
+                        <select
+                          multiple
+                          className="form-select"
+                          value={editClassSubjects}
+                          onChange={e => {
+                            const options = Array.from(e.target.selectedOptions).map(opt => opt.value);
+                            setEditClassSubjects(options);
+                          }}
+                        >
+                          {subjects.map(s => (
+                            <option key={s._id} value={s._id}>
+                              {s.name} ({s.code})
+                            </option>
+                          ))}
+                        </select>
+                        <small className="text-muted">Hold Ctrl (Windows) or Cmd (Mac) to select multiple subjects.</small>
+                      </div>
+                    </div>
+                    <div className="modal-footer">
+                      <button type="submit" className="btn btn-primary">Save Changes</button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setEditClass(null)}>Cancel</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       )}
 
