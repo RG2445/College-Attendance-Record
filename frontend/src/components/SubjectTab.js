@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-axios.defaults.baseURL = "http://localhost:5000";
+axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
 
 const SubjectsTab = ({ subjects, teachers, setMessage, fetchAll, token }) => {
   const [editSubject, setEditSubject] = useState(null);

@@ -8,6 +8,7 @@ const Teacher = require('../Models/Teacher');
 const Student = require('../Models/Student');
 const User = require('../Models/User');
 const mongoose = require('mongoose');
+const Class = require('../Models/Class.js');
 
 //-------------------------------------------------------------------------------------------------------------------//
 
@@ -106,9 +107,23 @@ router.get("/subjects", jwtAuthMiddleware, async (req, res) => {
 });
 
 // Get students for a specific subject (for attendance marking)
-router.get('/subject/:subjectId/students', jwtAuthMiddleware, async (req, res) => {
-  const { subjectId } = req.params;
+router.get('/subject/:subjectCode/students', jwtAuthMiddleware, async (req, res) => {
+  const { subjectCode } = req.params;
   try {
+    const userId = req.user.id;
+    // Find teacher
+    const teacher = await Teacher.findOne({ user: userId });
+    if (!teacher) {
+      return res.status(404).json({ error: 'Teacher not found' });
+    }
+    // Check if the teacher teaches the subject
+    const subject = await Subject.findOne({ code: subjectCode, teacher: teacher._id });
+    if (!subject) {
+      return res.status(403).json({ error: 'Access denied to this subject' });
+    }
+
+    const subjectId = subject._id;
+
     // Find all classes that include this subject
     const classes = await Class.find({ subjects: subjectId });
     const classIds = classes.map(c => c._id);

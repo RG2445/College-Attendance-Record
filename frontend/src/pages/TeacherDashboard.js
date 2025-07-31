@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./TeacherDashboard.css";
 import NavbarWithSidebar from '../components/NavbarWithSidebar';
+import axios from "axios";
+axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
 
 const TeacherDashboard = () => {
   const [subjects, setSubjects] = useState([]);
@@ -34,7 +36,7 @@ const TeacherDashboard = () => {
       setMessage("");
 
       try {
-        const res = await fetch("http://localhost:5000/api/teachers/profile/me", {
+        const res = await axios.get("/api/teachers/profile/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -44,12 +46,8 @@ const TeacherDashboard = () => {
           return;
         }
 
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.message || `HTTP error ${res.status}`);
-        }
 
-        const data = await res.json();
+        const data = res.data;
         setTeacherProfile(data);
         await fetchSubjects();
       } 
@@ -84,17 +82,14 @@ const TeacherDashboard = () => {
   // -------------------------------------------- Fetch Subjects -------------------------------------------- //
   const fetchSubjects = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/teachers/subjects", {
+      const res = await axios.get("/api/teachers/subjects", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await res.json();
-      if (res.ok) {
-        setSubjects(data);
-      } 
-      else {
-        setMessage("❌ Failed to fetch subjects.");
-      }
+      const data = await res.data;
+
+      setSubjects(data);
+    
     } 
     catch (err) {
       setMessage("❌ Error fetching subjects.");
@@ -112,22 +107,21 @@ const TeacherDashboard = () => {
     setAttendanceExists(false);
 
     if (!subjectId) return;
-
+  const selectedSubject = subjects.find((s) => s._id === subjectId);
+  if (!selectedSubject) {
+    setMessage("❌ Selected subject not found.");
+    return;
+  }
     try {
-      const res = await fetch(
-        `http://localhost:5000/api/teachers/subject/${subjectId}/students`,
+      const res = await axios.get(
+        `/api/teachers/subject/${selectedSubject.code}/students`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      const data = await res.json();
-      if (res.ok) {
-        setStudents(data);
-      } 
-      else {
-        setMessage("❌ Failed to fetch students for this subject.");
-      }
+      const data = await res.data;
+      setStudents(data);
     } 
     catch (err) {
       setMessage("❌ Error fetching students.");
@@ -135,43 +129,37 @@ const TeacherDashboard = () => {
   };
 
   // ----------------------------------- Fetch Attendance For Date ----------------------------------- //
-  const fetchAttendanceForDate = async (subjectId, date) => {
-    if (!subjectId || !date) {
-      setAttendanceExists(false);
-      setAttendanceList([]);
-      return;
-    }
-    try {
-      const res = await fetch("http://localhost:5000/api/teachers/attendance-by-date", {
-        method: "POST",
+const fetchAttendanceForDate = async (subjectId, date) => {
+  if (!subjectId || !date) {
+    setAttendanceExists(false);
+    setAttendanceList([]);
+    return;
+  }
+
+  try {
+    const res = await axios.post(
+      "/api/teachers/attendance-by-date",
+      { subjectId, date }, // <-- this is the data (not body)
+      {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ subjectId, date }),
-      });
-      const data = await res.json();
-      if (res.ok && Array.isArray(data.records) && data.records.length > 0) {
-        setAttendanceExists(true);
-        setAttendanceList(
-          data.records.map((entry) => ({
-            studentId: entry.student._id,
-            roll: entry.student.enrollmentNumber,
-            status: entry.status,
-          }))
-        );
-      } else {
-        setAttendanceExists(false);
-        // Default all students to Present
-        setAttendanceList(
-          students.map((student) => ({
-            studentId: student._id,
-            roll: student.enrollmentNumber,
-            status: "Present",
-          }))
-        );
       }
-    } catch {
+    );
+
+    const data = res.data; // axios auto parses JSON
+
+    if (Array.isArray(data.records) && data.records.length > 0) {
+      setAttendanceExists(true);
+      setAttendanceList(
+        data.records.map((entry) => ({
+          studentId: entry.student._id,
+          roll: entry.student.enrollmentNumber,
+          status: entry.status,
+        }))
+      );
+    } else {
       setAttendanceExists(false);
       setAttendanceList(
         students.map((student) => ({
@@ -181,7 +169,18 @@ const TeacherDashboard = () => {
         }))
       );
     }
-  };
+  } catch (error) {
+    setAttendanceExists(false);
+    setAttendanceList(
+      students.map((student) => ({
+        studentId: student._id,
+        roll: student.enrollmentNumber,
+        status: "Present",
+      }))
+    );
+  }
+};
+
 
   // When subject or date changes, fetch attendance for that date
   useEffect(() => {
@@ -207,78 +206,77 @@ const TeacherDashboard = () => {
   };
 
   // Submit attendance to backend
-  const handleSubmitAttendance = async () => {
-    if (!selectedSubjectId || !selectedDate || attendanceList.length === 0) {
-      setMessage("❌ Please select subject, date, and mark attendance.");
-      return;
-    }
+const handleSubmitAttendance = async () => {
+  if (!selectedSubjectId || !selectedDate || attendanceList.length === 0) {
+    setMessage("❌ Please select subject, date, and mark attendance.");
+    return;
+  }
 
-    try {
-      const response = await fetch("http://localhost:5000/api/teachers/mark-attendance", {
-        method: "POST",
+  try {
+    const response = await axios.post(
+      "/api/teachers/mark-attendance",
+      {
+        subjectId: selectedSubjectId,
+        date: selectedDate,
+        attendanceList: attendanceList.map(({ studentId, status }) => ({
+          studentId,
+          status
+        }))
+      },
+      {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          subjectId: selectedSubjectId,
-          date: selectedDate,
-          attendanceList: attendanceList.map(({ studentId, status }) => ({
-            studentId,
-            status
-          }))
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage(`✅ ${data.message || "Attendance marked successfully."}`);
-        setAttendanceExists(true);
-        // After submit, attendanceList already has correct data
-      } else {
-        setMessage(`❌ Failed to mark attendance: ${data.error || "Unknown error"}`);
+        }
       }
-    } catch (error) {
+    );
+
+    setMessage(`✅ ${response.data.message || "Attendance marked successfully."}`);
+    setAttendanceExists(true);
+  } catch (error) {
+    if (error.response && error.response.data && error.response.data.error) {
+      setMessage(`❌ Failed to mark attendance: ${error.response.data.error}`);
+    } else {
       setMessage("❌ Network or server error while submitting attendance.");
     }
-  };
+  }
+};
 
   // Update attendance to backend
-  const handleUpdateAttendance = async () => {
-    if (!selectedSubjectId || !selectedDate || attendanceList.length === 0) {
-      setMessage("❌ Please select subject, date, and mark attendance.");
-      return;
-    }
+const handleUpdateAttendance = async () => {
+  if (!selectedSubjectId || !selectedDate || attendanceList.length === 0) {
+    setMessage("❌ Please select subject, date, and mark attendance.");
+    return;
+  }
 
-    try {
-      const response = await fetch("http://localhost:5000/api/teachers/update-attendance", {
-        method: "PUT",
+  try {
+    const response = await axios.put(
+      "/api/teachers/update-attendance",
+      {
+        subjectId: selectedSubjectId,
+        date: selectedDate,
+        records: attendanceList.map(({ studentId, status }) => ({
+          student: studentId,
+          status
+        }))
+      },
+      {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          subjectId: selectedSubjectId,
-          date: selectedDate,
-          records: attendanceList.map(({ studentId, status }) => ({
-            student: studentId,
-            status
-          }))
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage(`✅ ${data.message || "Attendance updated successfully."}`);
-      } else {
-        setMessage(`❌ Failed to update attendance: ${data.error || "Unknown error"}`);
+        }
       }
-    } catch (error) {
+    );
+
+    setMessage(`✅ ${response.data.message || "Attendance updated successfully."}`);
+  } catch (error) {
+    if (error.response && error.response.data && error.response.data.error) {
+      setMessage(`❌ Failed to update attendance: ${error.response.data.error}`);
+    } else {
       setMessage("❌ Network or server error while updating attendance.");
     }
-  };
+  }
+};
 
   // ----------------------------------- Conditional Renders ----------------------------------- //
   if (loadingProfile) {

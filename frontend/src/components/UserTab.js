@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-axios.defaults.baseURL = "http://localhost:5000";
+axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
 
 const UsersTab = ({ users, setMessage, fetchAll, token }) => {
 const [searchTerm, setSearchTerm] = useState("");

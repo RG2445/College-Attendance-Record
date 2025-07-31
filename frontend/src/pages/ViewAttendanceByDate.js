@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import axios from 'axios';
+axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
 
 const ViewAttendanceByDate = () => {
   const [subjectCode, setSubjectCode] = useState('');
@@ -13,29 +15,32 @@ const ViewAttendanceByDate = () => {
       </div>
     );
   }
+  
+const fetchAttendance = async () => {
+  try {
+    const res = await axios.get(
+      `/api/teachers/attendance/${subjectCode}/${date}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
-  const fetchAttendance = async () => {
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/teachers/attendance/${subjectCode}/${date}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-        }
-      );
-      const data = await res.json();
-          if (!res.ok || !Array.isArray(data)) {
+    const data = res.data;
+
+    if (!Array.isArray(data)) {
       setRecords([]);
     } else {
       setRecords(data);
     }
-    } catch (err) {
-      console.error('Error fetching attendance:', err);
-    }
-  };
+  } catch (err) {
+    console.error('Error fetching attendance:', err);
+    setRecords([]);
+  }
+};
+
 
   return (
     <div className="container mt-4">

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import axios from 'axios';
+axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
 
 const AllAttendanceRecords = () => {
   const [subjectCode, setSubjectCode] = useState('');
@@ -16,10 +18,10 @@ const AllAttendanceRecords = () => {
   }
 
   try {
-    const res = await fetch(
-      `http://localhost:5000/api/teachers/subject/${subjectCode}/attendance?month=${month}&year=${year}`,
+    const res = await axios.get(
+      `/api/teachers/subject/${subjectCode}/attendance`,
       {
-        method: "GET",
+        params: { month, year },
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -27,19 +29,14 @@ const AllAttendanceRecords = () => {
       }
     );
 
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.message || 'Failed to fetch records');
-    }
-
-    const data = await res.json();
-    setRecords(data.records || []);
+    setRecords(res.data.records || []);
     setError('');
   } catch (err) {
     console.error('Error:', err);
-    setError(err.message || 'Something went wrong');
+    setError(err.response?.data?.message || 'Something went wrong');
   }
 };
+
 
   return (
     <div className="container mt-5">

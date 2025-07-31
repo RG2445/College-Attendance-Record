@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import axios from 'axios';
+axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
 
 const AttendanceSummary = () => {
   const [subjectCode, setSubjectCode] = useState('');
@@ -17,10 +19,9 @@ const AttendanceSummary = () => {
 const fetchSummary = async () => {
   setLoading(true);
   try {
-    const res = await fetch(
-      `http://localhost:5000/api/teachers/subject/${subjectCode}/summary`,
+    const res = await axios.get(
+      `/api/teachers/subject/${subjectCode}/summary`,
       {
-        method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -28,24 +29,19 @@ const fetchSummary = async () => {
       }
     );
 
-    if (res.status === 404) {
+    setSummary(res.data || []);
+  } catch (err) {
+    if (err.response?.status === 404) {
       setSummary([]);
-      return;
-    }
-
-    if (!res.ok) {
+    } else {
+      console.error("Error fetching summary:", err);
       setSummary([]);
-      return;
     }
-
-    const data = await res.json();
-    setSummary(data);
-  } catch {
-    setSummary([]);
   } finally {
     setLoading(false);
   }
 };
+
   return (
     <div className="container mt-5">
       <div className="card shadow-sm">

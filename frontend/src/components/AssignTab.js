@@ -1,6 +1,6 @@
 import React from "react";
 import axios from "axios";
-axios.defaults.baseURL = "http://localhost:5000";
+axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
 
 const AssignTab = ({ subjects, teachers, setMessage, fetchAll, token }) => {
   const handleAssignSubject = async (subjectId, teacherId) => {

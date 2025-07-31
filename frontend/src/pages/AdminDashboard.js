@@ -4,7 +4,7 @@ import UsersTab from "../components/UserTab";
 import ClassesTab from "../components/ClassTab";
 import AssignTab from "../components/AssignTab";
 import SubjectsTab from "../components/SubjectTab";
-axios.defaults.baseURL = "http://localhost:5000";
+axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
