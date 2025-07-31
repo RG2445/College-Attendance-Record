@@ -11,6 +11,7 @@ const TeacherDashboard = () => {
   const [selectedDate, setSelectedDate] = useState("");
   const [message, setMessage] = useState("");
   const [teacherProfile, setTeacherProfile] = useState(null);
+  // eslint-disable-next-line
   const [showDropdown, setShowDropdown] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [errorLoadingProfile, setErrorLoadingProfile] = useState(false);
