@@ -5,16 +5,14 @@ axios.defaults.baseURL = "http://localhost:5000";
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [teachers, setTeachers] = useState([]);
-  const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
-  const [attendanceReport, setAttendanceReport] = useState([]);
-  const [lowAttendance, setLowAttendance] = useState([]);
-  const [classSummary, setClassSummary] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [message, setMessage] = useState("");
   const [createRole, setCreateRole] = useState("student");
-
   const [tab, setTab] = useState("users");
+  const [editSubject, setEditSubject] = useState(null);
+
   const token = localStorage.getItem("token");
 
   // Fetch all data on mount
@@ -24,16 +22,14 @@ const AdminDashboard = () => {
 
   const fetchAll = async () => {
     try {
-      const [usersRes, teachersRes, studentsRes, classesRes, subjectsRes] = await Promise.all([
+      const [usersRes, teachersRes, classesRes, subjectsRes] = await Promise.all([
         axios.get("/api/admin/users", { headers: { Authorization: `Bearer ${token}` } }),
         axios.get("/api/admin/teachers", { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get("/api/admin/users?role=student", { headers: { Authorization: `Bearer ${token}` } }),
         axios.get("/api/admin/classes", { headers: { Authorization: `Bearer ${token}` } }),
         axios.get("/api/admin/subjects", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       setUsers(usersRes.data);
       setTeachers(teachersRes.data);
-      setStudents(studentsRes.data);
       setClasses(classesRes.data);
       setSubjects(subjectsRes.data);
     } catch {
@@ -41,17 +37,17 @@ const AdminDashboard = () => {
     }
   };
 
-const handleCreateUser = async (payload) => {
-  try {
-    await axios.post("/api/admin/users", payload, { headers: { Authorization: `Bearer ${token}` } });
-    setMessage("User created successfully");
-    fetchAll();
-  } catch (err) {
-    setMessage(err.response?.data?.error || "Failed to create user");
-  }
-};
+  // User CRUD
+  const handleCreateUser = async (payload) => {
+    try {
+      await axios.post("/api/admin/users", payload, { headers: { Authorization: `Bearer ${token}` } });
+      setMessage("User created successfully");
+      fetchAll();
+    } catch (err) {
+      setMessage(err.response?.data?.error || "Failed to create user");
+    }
+  };
 
-  // Delete user
   const handleDeleteUser = async (id) => {
     try {
       await axios.delete(`/api/admin/users/${id}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -62,10 +58,10 @@ const handleCreateUser = async (payload) => {
     }
   };
 
-  // Create class
-  const handleCreateClass = async (name, branch, studentIds) => {
+  // Class CRUD
+  const handleCreateClass = async (name, branch) => {
     try {
-      await axios.post("/api/admin/classes", { name, branch, students: studentIds }, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post("/api/admin/classes", { name, branch }, { headers: { Authorization: `Bearer ${token}` } });
       setMessage("Class created successfully");
       fetchAll();
     } catch (err) {
@@ -73,7 +69,6 @@ const handleCreateUser = async (payload) => {
     }
   };
 
-  // Delete class
   const handleDeleteClass = async (id) => {
     try {
       await axios.delete(`/api/admin/classes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -84,7 +79,43 @@ const handleCreateUser = async (payload) => {
     }
   };
 
-  // Assign subject to teacher
+  // Subject CRUD
+  const handleCreateSubject = async (name, code, teacherId) => {
+    try {
+      await axios.post("/api/admin/subjects", { name, code, teacher: teacherId }, { headers: { Authorization: `Bearer ${token}` } });
+      setMessage("Subject created successfully");
+      fetchAll();
+    } catch (err) {
+      setMessage(err.response?.data?.error || "Failed to create subject");
+    }
+  };
+
+  const handleDeleteSubject = async (id) => {
+    try {
+      await axios.delete(`/api/admin/subjects/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      setMessage("Subject deleted successfully");
+      fetchAll();
+    } catch (err) {
+      setMessage(err.response?.data?.error || "Failed to delete subject");
+    }
+  };
+
+  const handleEditSubject = async (e) => {
+    e.preventDefault();
+    const name = e.target.name.value;
+    const code = e.target.code.value;
+    const teacher = e.target.teacher.value;
+    try {
+      await axios.put(`/api/admin/subjects/${editSubject._id}`, { name, code, teacher }, { headers: { Authorization: `Bearer ${token}` } });
+      setMessage("Subject updated successfully");
+      setEditSubject(null);
+      fetchAll();
+    } catch (err) {
+      setMessage(err.response?.data?.error || "Failed to update subject");
+    }
+  };
+
+  // Assign/Unassign subject to teacher
   const handleAssignSubject = async (subjectId, teacherId) => {
     try {
       await axios.post("/api/admin/assign-subject", { subjectId, teacherId }, { headers: { Authorization: `Bearer ${token}` } });
@@ -95,7 +126,6 @@ const handleCreateUser = async (payload) => {
     }
   };
 
-  // Unassign subject from teacher
   const handleUnassignSubject = async (subjectId, teacherId) => {
     try {
       await axios.post("/api/admin/unassign-subject", { subjectId, teacherId }, { headers: { Authorization: `Bearer ${token}` } });
@@ -103,39 +133,6 @@ const handleCreateUser = async (payload) => {
       fetchAll();
     } catch (err) {
       setMessage(err.response?.data?.error || "Failed to unassign subject");
-    }
-  };
-
-  // Attendance report by date range
-  const fetchAttendanceReport = async (startDate, endDate, subjectId, classId) => {
-    try {
-      const res = await axios.get(`/api/admin/reports/attendance?startDate=${startDate}&endDate=${endDate}&subjectId=${subjectId}&classId=${classId}`, { headers: { Authorization: `Bearer ${token}` } });
-      setAttendanceReport(res.data);
-      setMessage("");
-    } catch (err) {
-      setMessage("Failed to fetch attendance report");
-    }
-  };
-
-  // Low attendance students
-  const fetchLowAttendance = async (threshold, subjectId) => {
-    try {
-      const res = await axios.get(`/api/admin/reports/low-attendance?threshold=${threshold}&subjectId=${subjectId}`, { headers: { Authorization: `Bearer ${token}` } });
-      setLowAttendance(res.data);
-      setMessage("");
-    } catch (err) {
-      setMessage("Failed to fetch low attendance students");
-    }
-  };
-
-  // Attendance summary by class
-  const fetchClassSummary = async (classId) => {
-    try {
-      const res = await axios.get(`/api/admin/reports/class-summary?classId=${classId}`, { headers: { Authorization: `Bearer ${token}` } });
-      setClassSummary(res.data);
-      setMessage("");
-    } catch (err) {
-      setMessage("Failed to fetch class summary");
     }
   };
 
@@ -163,111 +160,127 @@ const handleCreateUser = async (payload) => {
         <li className="nav-item"><button className={`nav-link ${tab === "users" ? "active" : ""}`} onClick={() => setTab("users")}>Users</button></li>
         <li className="nav-item"><button className={`nav-link ${tab === "classes" ? "active" : ""}`} onClick={() => setTab("classes")}>Classes</button></li>
         <li className="nav-item"><button className={`nav-link ${tab === "assign" ? "active" : ""}`} onClick={() => setTab("assign")}>Assign Subjects</button></li>
-        <li className="nav-item"><button className={`nav-link ${tab === "attendance" ? "active" : ""}`} onClick={() => setTab("attendance")}>Attendance Report</button></li>
-        <li className="nav-item"><button className={`nav-link ${tab === "low" ? "active" : ""}`} onClick={() => setTab("low")}>Low Attendance</button></li>
-        <li className="nav-item"><button className={`nav-link ${tab === "summary" ? "active" : ""}`} onClick={() => setTab("summary")}>Class Summary</button></li>
+        <li className="nav-item"><button className={`nav-link ${tab === "subjects" ? "active" : ""}`} onClick={() => setTab("subjects")}>Subjects</button></li>
       </ul>
 
       {/* Users Tab */}
       {tab === "users" && (
         <section>
-          <h4>All Users</h4>
-          <table className="table table-bordered">
-            <thead>
-              <tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr>
-            </thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u._id}>
-                  <td>{u.name || "-"}</td>
-                  <td>{u.email}</td>
-                  <td>{u.role}</td>
-                  <td>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(u._id)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <h5>Create User</h5>
+          <h5>Search Users</h5>
+          <input
+            type="text"
+            className="form-control mb-2"
+            placeholder="Search by name"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
 
-<form onSubmit={async (e) => {
-  e.preventDefault();
-  const role = e.target.role.value;
-  const name = e.target.name.value;
-  const email = e.target.email.value;
-  const password = e.target.password.value;
-  const branch = e.target.branch?.value;
-  let payload = { role, name, email, password };
+          <div className="accordion" id="usersAccordion">
+            <div className="accordion-item">
+              <h2 className="accordion-header" id="usersHeading">
+                <button className="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#usersCollapse" aria-expanded="false" aria-controls="usersCollapse">
+                  View All Users
+                </button>
+              </h2>
+              <div id="usersCollapse" className="accordion-collapse collapse" aria-labelledby="usersHeading" data-bs-parent="#usersAccordion">
+                <div className="accordion-body">
+                  <table className="table table-bordered">
+                    <thead>
+                      <tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                      {users
+                        .filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+                        .map(u => (
+                          <tr key={u._id}>
+                            <td>{u.name || "-"}</td>
+                            <td>{u.email}</td>
+                            <td>{u.role}</td>
+                            <td>
+                              <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(u._id)}>Delete</button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
 
-  if (role === "student") {
-    payload.branch = branch;
-    payload.enrollmentNumber = e.target.enrollmentNumber.value;
-    payload.className = e.target.className.value;
-  }
-  if (role === "teacher") {
-    // Do not send branch
-  }
-  await handleCreateUser(payload);
-  e.target.reset();
-}}>
-  <div className="mb-3">
-    <label className="form-label">Role</label>
-    <select
-      className="form-select"
-      name="role"
-      required
-      value={createRole}
-      onChange={e => setCreateRole(e.target.value)}
-    >
-      <option value="student">Student</option>
-      <option value="teacher">Teacher</option>
-      <option value="admin">Admin</option>
-    </select>
-  </div>
-  <div className="mb-3">
-    <label className="form-label">Name</label>
-    <input type="text" className="form-control" name="name" required />
-  </div>
-  <div className="mb-3">
-    <label className="form-label">Email</label>
-    <input type="email" className="form-control" name="email" required />
-  </div>
-  <div className="mb-3">
-    <label className="form-label">Password</label>
-    <input type="password" className="form-control" name="password" required />
-  </div>
-  {/* Branch field: required for student, hidden for teacher */}
-  {createRole === "student" && (
-    <div className="mb-3">
-      <label className="form-label">Branch</label>
-      <input type="text" className="form-control" name="branch" required />
-    </div>
-  )}
-  {createRole === "teacher" ? null : (
-    createRole === "admin" && (
-      <div className="mb-3">
-        <label className="form-label">Branch (optional)</label>
-        <input type="text" className="form-control" name="branch" />
-      </div>
-    )
-  )}
-  {createRole === "student" && (
-    <>
-      <div className="mb-3">
-        <label className="form-label">Enrollment Number</label>
-        <input type="text" className="form-control" name="enrollmentNumber" required />
-      </div>
-      <div className="mb-3">
-        <label className="form-label">Class Name</label>
-        <input type="text" className="form-control" name="className" required />
-      </div>
-    </>
-  )}
-  <button type="submit" className="btn btn-primary">Create User</button>
-</form>
-        
-          {/* Add create user form here */}
+          <h5 className="mt-4">Create User</h5>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const role = e.target.role.value;
+            const name = e.target.name.value;
+            const email = e.target.email.value;
+            const password = e.target.password.value;
+            const branch = e.target.branch?.value;
+            let payload = { role, name, email, password };
+
+            if (role === "student") {
+              payload.branch = branch;
+              payload.enrollmentNumber = e.target.enrollmentNumber.value;
+              payload.className = e.target.className.value;
+            }
+            await handleCreateUser(payload);
+            e.target.reset();
+          }}>
+            <div className="mb-3">
+              <label className="form-label">Role</label>
+              <select
+                className="form-select"
+                name="role"
+                required
+                value={createRole}
+                onChange={e => setCreateRole(e.target.value)}
+              >
+                <option value="student">Student</option>
+                <option value="teacher">Teacher</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Name</label>
+              <input type="text" className="form-control" name="name" required />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Email</label>
+              <input type="email" className="form-control" name="email" required />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Password</label>
+              <input type="password" className="form-control" name="password" required />
+            </div>
+            {/* Branch field: required for student, hidden for teacher */}
+            {createRole === "student" && (
+              <div className="mb-3">
+                <label className="form-label">Branch</label>
+                <input type="text" className="form-control" name="branch" required />
+              </div>
+            )}
+            {createRole === "teacher" ? null : (
+              createRole === "admin" && (
+                <div className="mb-3">
+                  <label className="form-label">Branch (optional)</label>
+                  <input type="text" className="form-control" name="branch" />
+                </div>
+              )
+            )}
+            {createRole === "student" && (
+              <>
+                <div className="mb-3">
+                  <label className="form-label">Enrollment Number</label>
+                  <input type="text" className="form-control" name="enrollmentNumber" required />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Class Name</label>
+                  <input type="text" className="form-control" name="className" required />
+                </div>
+              </>
+            )}
+            <button type="submit" className="btn btn-primary">Create User</button>
+          </form>
         </section>
       )}
 
@@ -297,8 +310,8 @@ const handleCreateUser = async (payload) => {
             e.preventDefault();
             const name = e.target.name.value;
             const branch = e.target.branch.value;
-            const studentIds = Array.from(e.target.students.selectedOptions).map(o => o.value);
-            handleCreateClass(name, branch, studentIds);
+            handleCreateClass(name, branch);
+            e.target.reset();
           }}>
             <div className="mb-3">
               <label className="form-label">Class Name</label>
@@ -308,16 +321,8 @@ const handleCreateUser = async (payload) => {
               <label className="form-label">Branch</label>
               <input type="text" className="form-control" name="branch" required />
             </div>
-            <div className="mb-3">
-              <label className="form-label">Students</label>
-              <select className="form-select" name="students" multiple required>
-                {students.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-              </select>
-            </div>
             <button type="submit" className="btn btn-primary">Create Class</button>
           </form>
-
-          {/* Add create class form here */}
         </section>
       )}
 
@@ -354,130 +359,91 @@ const handleCreateUser = async (payload) => {
         </section>
       )}
 
-      {/* Attendance Report Tab */}
-      {tab === "attendance" && (
+      {/* Subjects Tab */}
+      {tab === "subjects" && (
         <section>
-          <h4>Attendance Report</h4>
-          <div className="row mb-3">
-            <div className="col-md-3">
-              <input type="date" className="form-control" id="startDate" />
-            </div>
-            <div className="col-md-3">
-              <input type="date" className="form-control" id="endDate" />
-            </div>
-            <div className="col-md-3">
-              <select className="form-select" id="subjectReportSelect">
-                <option value="">Subject</option>
-                {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div className="col-md-3">
-              <select className="form-select" id="classReportSelect">
-                <option value="">Class</option>
-                {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-              </select>
-            </div>
-          </div>
-          <button className="btn btn-info mb-3" onClick={() => {
-            const startDate = document.getElementById("startDate").value;
-            const endDate = document.getElementById("endDate").value;
-            const subjectId = document.getElementById("subjectReportSelect").value;
-            const classId = document.getElementById("classReportSelect").value;
-            fetchAttendanceReport(startDate, endDate, subjectId, classId);
-          }}>Fetch Report</button>
+          <h4>All Subjects</h4>
           <table className="table table-bordered">
             <thead>
-              <tr><th>Date</th><th>Student</th><th>Subject</th><th>Status</th></tr>
+              <tr><th>Name</th><th>Code</th><th>Teacher</th><th>Action</th></tr>
             </thead>
             <tbody>
-              {attendanceReport.map((r, idx) => (
-                <tr key={idx}>
-                  <td>{r.date}</td>
-                  <td>{r.student?.name}</td>
-                  <td>{r.subject?.name}</td>
-                  <td>{r.status}</td>
+              {subjects.map(s => (
+                <tr key={s._id}>
+                  <td>{s.name}</td>
+                  <td>{s.code}</td>
+                  <td>{s.teacher?.name || "-"}</td>
+                  <td>
+                    <button className="btn btn-warning btn-sm me-2" onClick={() => setEditSubject(s)}>Edit</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteSubject(s._id)}>Delete</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </section>
-      )}
+          <h5>Create Subject</h5>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const name = e.target.name.value;
+            const code = e.target.code.value;
+            const teacherId = e.target.teacher.value;
+            handleCreateSubject(name, code, teacherId);
+            e.target.reset();
+          }}>
+            <div className="mb-3">
+              <label className="form-label">Subject Name</label>
+              <input type="text" className="form-control" name="name" required />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Subject Code</label>
+              <input type="text" className="form-control" name="code" required />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Assign Teacher (optional)</label>
+              <select className="form-select" name="teacher">
+                <option value="">None</option>
+                {teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+              </select>
+            </div>
+            <button type="submit" className="btn btn-primary">Create Subject</button>
+          </form>
 
-      {/* Low Attendance Tab */}
-      {tab === "low" && (
-        <section>
-          <h4>Low Attendance Students</h4>
-          <div className="row mb-3">
-            <div className="col-md-3">
-              <input type="number" className="form-control" id="threshold" placeholder="Threshold %" defaultValue={75} />
+          {/* Edit Subject Modal */}
+          {editSubject && (
+            <div className="modal show" style={{ display: "block", background: "rgba(0,0,0,0.2)" }}>
+              <div className="modal-dialog">
+                <div className="modal-content">
+                  <form onSubmit={handleEditSubject}>
+                    <div className="modal-header">
+                      <h5 className="modal-title">Edit Subject</h5>
+                      <button type="button" className="btn-close" onClick={() => setEditSubject(null)}></button>
+                    </div>
+                    <div className="modal-body">
+                      <div className="mb-3">
+                        <label className="form-label">Subject Name</label>
+                        <input type="text" className="form-control" name="name" defaultValue={editSubject.name} required />
+                      </div>
+                      <div className="mb-3">
+                        <label className="form-label">Subject Code</label>
+                        <input type="text" className="form-control" name="code" defaultValue={editSubject.code} required />
+                      </div>
+                      <div className="mb-3">
+                        <label className="form-label">Assign Teacher (optional)</label>
+                        <select className="form-select" name="teacher" defaultValue={editSubject.teacher?._id || ""}>
+                          <option value="">None</option>
+                          {teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="modal-footer">
+                      <button type="submit" className="btn btn-primary">Save Changes</button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setEditSubject(null)}>Cancel</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
             </div>
-            <div className="col-md-3">
-              <select className="form-select" id="subjectLowSelect">
-                <option value="">Subject</option>
-                {subjects.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div className="col-md-3">
-              <button className="btn btn-info" onClick={() => {
-                const threshold = document.getElementById("threshold").value;
-                const subjectId = document.getElementById("subjectLowSelect").value;
-                fetchLowAttendance(threshold, subjectId);
-              }}>Fetch Low Attendance</button>
-            </div>
-          </div>
-          <table className="table table-bordered">
-            <thead>
-              <tr><th>Student</th><th>Subject</th><th>Present</th><th>Total</th><th>%</th></tr>
-            </thead>
-            <tbody>
-              {lowAttendance.map((r, idx) => (
-                <tr key={idx}>
-                  <td>{r.student?.name}</td>
-                  <td>{r.subject?.name}</td>
-                  <td>{r.presentClasses}</td>
-                  <td>{r.totalClasses}</td>
-                  <td>{r.attendancePercentage}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
-
-      {/* Class Summary Tab */}
-      {tab === "summary" && (
-        <section>
-          <h4>Attendance Summary by Class</h4>
-          <div className="row mb-3">
-            <div className="col-md-3">
-              <select className="form-select" id="classSummarySelect">
-                <option value="">Class</option>
-                {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div className="col-md-3">
-              <button className="btn btn-info" onClick={() => {
-                const classId = document.getElementById("classSummarySelect").value;
-                fetchClassSummary(classId);
-              }}>Fetch Summary</button>
-            </div>
-          </div>
-          <table className="table table-bordered">
-            <thead>
-              <tr><th>Subject</th><th>Present</th><th>Absent</th><th>Total</th><th>%</th></tr>
-            </thead>
-            <tbody>
-              {classSummary.map((r, idx) => (
-                <tr key={idx}>
-                  <td>{r.subject?.name}</td>
-                  <td>{r.presentCount}</td>
-                  <td>{r.absentCount}</td>
-                  <td>{r.totalClasses}</td>
-                  <td>{r.attendancePercentage}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          )}
         </section>
       )}
     </div>

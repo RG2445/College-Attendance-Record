@@ -49,7 +49,19 @@ router.get('/stats', jwtAuthMiddleware, isAdmin, async (req, res) => {
 router.get('/users', jwtAuthMiddleware, isAdmin, async (req, res) => {
   try {
     const users = await User.find().select('-password');
-    res.json(users);
+    // Get profile name for each user
+    const usersWithName = await Promise.all(users.map(async (user) => {
+      let name = user.email;
+      if (user.role === 'student') {
+        const student = await Student.findOne({ user: user._id });
+        if (student) name = student.name;
+      } else if (user.role === 'teacher') {
+        const teacher = await Teacher.findOne({ user: user._id });
+        if (teacher) name = teacher.name;
+      }
+      return { ...user.toObject(), name };
+    }));
+    res.json(usersWithName);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch users' });
