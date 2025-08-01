@@ -13,6 +13,8 @@ import {
   Cell,
 } from "recharts";
 import "./StudentDashboard.css";
+import axios from "axios";
+axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
 
 const COLORS = ["#4A90E2", "#FF8C00"];
 
@@ -51,61 +53,70 @@ const StudentDashboard = () => {
     };
   }, []);
 
-  const fetchProfile = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/students/profile", {
-        headers: { 
-          Authorization: `Bearer ${token}` },
-      });
-      
-      if (res.status === 401) {
-        localStorage.removeItem("token");
-        navigate("/");
-        return;
-      }
-      
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      
-      const data = await res.json();
-      setProfile(data);
-      console.log("Profile data:", data);
-      fetchAttendanceStats(data._id);
-    } catch (err) {
+
+
+const fetchProfile = async () => {
+  try {
+    const res = await axios.get("http://localhost:5000/api/students/profile", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    // Axios does not treat status codes >= 400 as ok by default,
+    // so we don't need manual res.ok checking
+    const data = res.data;
+    setProfile(data);
+    console.log("Profile data:", data);
+    fetchAttendanceStats(data._id);
+  } catch (err) {
+    if (err.response && err.response.status === 401) {
+      localStorage.removeItem("token");
+      navigate("/");
+    } else {
       setError("Failed to fetch student profile.");
       console.error("Profile fetch error:", err);
     }
-  };
+  }
+};
 
-  const fetchAttendanceStats = async (studentId) => {
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/students/${studentId}/attendance/stats`,
 
-        {
-          
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      
-      if (res.status === 401) {
-        localStorage.removeItem("token");
-        navigate("/");
-        return;
+const fetchAttendanceStats = async (studentId) => {
+  try {
+    const res = await axios.get(
+      `http://localhost:5000/api/students/${studentId}/attendance/stats`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
-      
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      
-      const data = await res.json();
-      setAttendanceStats(data);
+    );
 
-      const total = data.reduce((sum, stat) => sum + stat.totalClasses, 0);
-      const present = data.reduce((sum, stat) => sum + stat.presentClasses, 0);
-      setOverallAttendance({ total, present });
-    } catch (err) {
+    const data = res.data;
+
+    const statsWithDefaults = data.map((stat) => ({
+      subject: stat.subject || { name: "Unknown", code: "N/A" },
+      totalClasses: stat.totalClasses ?? 0,
+      presentClasses: stat.presentClasses ?? 0,
+      attendancePercentage: stat.attendancePercentage ?? 0,
+    }));
+
+    setAttendanceStats(statsWithDefaults);
+
+    const total = statsWithDefaults.reduce((sum, s) => sum + s.totalClasses, 0);
+    const present = statsWithDefaults.reduce((sum, s) => sum + s.presentClasses, 0);
+    setOverallAttendance({ total, present });
+
+  } catch (err) {
+    if (err.response && err.response.status === 401) {
+      localStorage.removeItem("token");
+      navigate("/");
+    } else {
       setError("Failed to fetch attendance stats.");
       console.error("Attendance fetch error:", err);
     }
-  };
+  }
+};
 
   const handleLogout = async () => {
     setIsLoggingOut(true);

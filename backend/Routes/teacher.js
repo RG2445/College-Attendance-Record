@@ -10,64 +10,6 @@ const User = require('../Models/User');
 const mongoose = require('mongoose');
 const Class = require('../Models/Class.js');
 
-//-------------------------------------------------------------------------------------------------------------------//
-
-// Create a new teacher (Admin only)
-router.post('/create', jwtAuthMiddleware, async (req, res) => {
-  try {
-    const { email, password, name, subjects = [] } = req.body;
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
-    }
-
-    const newUser = new User({
-      email,
-      password,
-      role: 'teacher'
-    });
-    await newUser.save();
-
-    const newTeacher = new Teacher({
-      user: newUser._id,
-      name,
-      subjects
-    });
-    await newTeacher.save();
-
-    if (subjects.length > 0) {
-      await Subject.updateMany(
-        { _id: { $in: subjects } },
-        { teacher: newTeacher._id }
-      );
-    }
-
-    res.status(201).json({ 
-      message: 'Teacher created successfully', 
-      teacher: newTeacher 
-    });
-  }
-  catch (err) {
-    res.status(500).json({ error: 'Failed to create teacher' });
-  }
-});
-
-// Get all teachers (Admin)
-router.get('/', jwtAuthMiddleware, async (req, res) => {
-  try {
-    const teachers = await Teacher.find()
-      .populate('user', 'email')
-      .populate('subjects', 'name code')
-      .select('-__v');
-    
-    res.json(teachers);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch teachers' });
-  }
-});
-
 //----------------------------------------------------------------------------------------------------------------------------------------------//
 
 // Get current teacher's profile
