@@ -12,12 +12,19 @@ const attendanceRoutes = require("./Routes/attendance");
 const app = express();
 const port = process.env.PORT || 5000;
 
-const allowedOrigins = [process.env.CLIENT_URL]; 
+const allowedOrigins = [process.env.CLIENT_URL,"http://localhost:3000"]; 
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
 }));
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
