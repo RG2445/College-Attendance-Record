@@ -10,8 +10,15 @@ const adminRoutes = require("./Routes/admin");
 const attendanceRoutes = require("./Routes/attendance");
 
 const app = express();
+const port = process.env.PORT || 5000;
 
-app.use(cors());
+const allowedOrigins = [process.env.CLIENT_URL]; 
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
@@ -20,6 +27,6 @@ app.use("/api/teachers", teacherRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/attendance", attendanceRoutes);
 
-app.listen(5000, () => {
-  console.log(`Server running on port 5000`);
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });

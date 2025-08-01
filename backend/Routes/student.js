@@ -25,23 +25,6 @@ router.get('/profile', jwtAuthMiddleware, async (req, res) => {
   }
 });
 
-// Get all subjects for the current student
-router.get('/profile/subjects', jwtAuthMiddleware, async (req, res) => {
-  try {
-    const student = await Student.findOne({ user: req.user.id }).populate('classId');
-    if (!student || !student.classId) {
-      return res.status(404).json({ error: 'Student or class not found' });
-    }
-
-    // Populate subjects from class
-    const classWithSubjects = await Class.findById(student.classId._id).populate('subjects');
-    res.json(classWithSubjects.subjects || []);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch subjects for student' });
-  }
-});
-
 // Get student's overall attendance statistics
 router.get('/:studentId/attendance/stats', jwtAuthMiddleware, async (req, res) => {
   try {
