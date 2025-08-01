@@ -9,31 +9,34 @@ export default function LoginPage() {
   const [role, setRole] = useState("student");
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role }), // include role in request
-      });
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const res = await axios.post("/api/auth/login", {
+      email,
+      password,
+      role, 
+    });
 
-      const data = await res.json();
+    const data = res.data; 
 
-      if (res.ok) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("role", data.role);
-        if (data.role === "student") navigate("/StudentDashboard");
-        else if (data.role === "teacher") navigate("/TeacherDashboard");
-        else if (data.role === "admin") navigate("/AdminDashboard");
-      } else {
-        alert(data.message || "Login failed");
-      }
-    } catch (err) {
-      console.error(err);
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("role", data.role);
+
+    if (data.role === "student") navigate("/StudentDashboard");
+    else if (data.role === "teacher") navigate("/TeacherDashboard");
+    else if (data.role === "admin") navigate("/AdminDashboard");
+
+  } catch (err) {
+    console.error(err);
+    if (err.response?.data?.message) {
+      alert(err.response.data.message);
+    } else {
       alert("Server error");
     }
-  };
+  }
+};
+
 
   return (
     <div className="container-fluid min-vh-100 d-flex align-items-center justify-content-center bg-light">
