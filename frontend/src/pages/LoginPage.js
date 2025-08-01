@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate} from "react-router-dom";
+import axios from "axios";
+axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -10,7 +12,7 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, role }), // include role in request
